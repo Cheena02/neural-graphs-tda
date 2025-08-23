@@ -41,3 +41,10 @@ checkpoints/th
 
 # Ignore old code folder
 zzzOLDCODE/
+
+# archives
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.rar
