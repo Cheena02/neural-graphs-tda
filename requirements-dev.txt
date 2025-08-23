@@ -1,0 +1,12 @@
+# Linting / formatting
+black==24.3.0
+flake8==7.0.0
+isort==5.13.2
+
+# Testing
+pytest==8.1.1
+pytest-cov==5.0.0
+
+# Notebooks (optional, if you use Jupyter)
+jupyter==1.0.0
+notebook==7.1.2

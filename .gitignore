@@ -1,0 +1,43 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyd
+
+# ---- Virtual environments ----
+.venv/
+venv/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+*.ipynb_convert
+
+# ---- IDE configs ----
+.vscode/
+.idea/
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+
+# ---- Data & outputs (custom for your project) ----
+data/
+my_results/
+outputs/
+checkpoints/th
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pt
+*.pth
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+
+# Ignore old code folder
+zzzOLDCODE/

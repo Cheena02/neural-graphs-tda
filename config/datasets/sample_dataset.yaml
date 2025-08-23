@@ -1,0 +1,3 @@
+path: "data/raw_data/sample_images"
+file_extension: ".png"
+color_mode: "grayscale"

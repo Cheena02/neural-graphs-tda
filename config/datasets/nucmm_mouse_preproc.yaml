@@ -1,0 +1,5 @@
+name: nucmm_mouse_preproc
+path: "my_results/preproc/nucmm_mouse"
+extensions: [".png"]
+color_mode: grayscale
+recursive: true
