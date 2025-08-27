@@ -28,14 +28,39 @@ def _resolve_config_path(config_path: str | os.PathLike) -> Path:
     raise FileNotFoundError(f"Config not found: {config_path}\nTried:\n  - {tried}")
 
 
+# NEW: expand helpers ----------------------------------------------------------
+def expand_path(s: str) -> Path:
+    """
+    Expand ${ENV} / %ENV%, ~ and return absolute Path.
+    """
+    return Path(os.path.expanduser(os.path.expandvars(s))).resolve()
+
+
+def deep_expand(x: Any) -> Any:
+    """
+    Recursively expand strings that contain env vars or ~ inside a dict/list tree.
+    Leaves other strings alone (fast path).
+    """
+    if isinstance(x, dict):
+        return {k: deep_expand(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [deep_expand(v) for v in x]
+    if isinstance(x, str):
+        # Only expand strings that look like paths with env vars or ~
+        if "${" in x or "%" in x or x.startswith("~"):
+            return str(expand_path(x))
+        return x
+    return x
+# -----------------------------------------------------------------------------
+
+
 def load_config(config_path: str | os.PathLike) -> Dict[str, Any]:
-    """Load a dataset YAML configuration file (robust path resolution)."""
+    """Load a dataset YAML configuration file (robust path resolution + env expansion)."""
     cfg_path = _resolve_config_path(config_path)
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
 
     # Normalize keys and defaults
-    # Accept either `extensions: [".png", ".jpg"]` or legacy `file_extension: ".png"`
     if "extensions" in cfg and isinstance(cfg["extensions"], list):
         exts = [e.lower() if e.startswith(".") else f".{e.lower()}" for e in cfg["extensions"]]
     else:
@@ -45,15 +70,23 @@ def load_config(config_path: str | os.PathLike) -> Dict[str, Any]:
         else:
             exts = [".png"]
     cfg["extensions"] = exts
-
     cfg["color_mode"] = cfg.get("color_mode", "grayscale")
     cfg["recursive"] = bool(cfg.get("recursive", False))
 
-    # Resolve base path
+    # Expand env vars (DATA_PATH / RESULTS_PATH) and ~ across the whole config
+    cfg = deep_expand(cfg)
+
+    # Resolve base path (after expansion)
     if "path" not in cfg:
         raise KeyError("Config missing required key 'path'.")
     base = Path(cfg["path"])
-    base_candidates = [base, Path.cwd() / base, _repo_root() / base]
+
+    # Try as-is, then relative to CWD and repo root
+    base_candidates = [
+        base,
+        Path.cwd() / base,
+        _repo_root() / base,
+    ]
     for c in base_candidates:
         if c.exists():
             cfg["path"] = str(c.resolve())
@@ -93,8 +126,7 @@ def load_image(image_path: str, color_mode: str = "grayscale"):
     if color_mode == "grayscale":
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     else:
-        img = cv2.imread(image_path, cv2.IMREAD_COLOR)
-
+        img = cv2.imread(image_path, cvIMREAD_COLOR)  # keep your original if correct
     if img is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
     return img

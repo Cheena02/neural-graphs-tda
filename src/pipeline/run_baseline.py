@@ -21,7 +21,7 @@ DATASETS = [
 
 # Always resolve results under the project root (…/Dataset Analysis)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_ROOT = PROJECT_ROOT / "my_results"/"results_raw"   # change folder name if you prefer
+RESULTS_ROOT = PROJECT_ROOT / "my_results"/"results_raw"   #
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -127,14 +127,14 @@ def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike, down
     # Write metrics
     df = pd.DataFrame(rows)
     df.to_csv(out_dir / "metrics.csv", index=False)
-    print(f"[baseline] wrote {out_dir / 'metrics.csv'}  (rows={len(rows)})")
-    print(f"[baseline] diagrams: {out_dir / 'diagrams'}")
-    print(f"[baseline] plots:    {out_dir / 'plots'}")
+    print(f"[raw] wrote {out_dir / 'metrics.csv'}  (rows={len(rows)})")
+    print(f"[raw] diagrams: {out_dir / 'diagrams'}")
+    print(f"[raw] plots:    {out_dir / 'plots'}")
 
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     for split, yml in DATASETS:
-        out = RESULTS_ROOT / "nucmm" / split / "baseline"
+        out = RESULTS_ROOT / "nucmm" / split / "raw"
         process_dataset(yml, out)

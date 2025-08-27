@@ -1,5 +1,6 @@
 name: nucmm_zebrafish_preproc
-path: "my_results/preproc/nucmm_zebrafish"
+path: my_results/preproc/nucmm_zebrafish"
 extensions: [".png"]
 color_mode: grayscale
 recursive: true
+notes: "Preprocessed NucMM zebrafish dataset"

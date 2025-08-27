@@ -26,13 +26,21 @@ Thumbs.db
 data/
 my_results/
 outputs/
-checkpoints/th
+checkpoints/
+experiments/
+runs/
+logs/
+
+# ---- Large data formats ----
 *.h5
 *.hdf5
 *.npy
 *.npz
 *.pt
 *.pth
+*.ckpt
+
+# ---- Image formats (outputs, not code assets) ----
 *.tif
 *.tiff
 *.png

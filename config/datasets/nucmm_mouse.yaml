@@ -1,5 +1,5 @@
 name: nucmm_mouse
-path: data/raw_data/nucmm/Mouse (NucMM-M)/mouse
+path: "${DATA_PATH}/raw_data/nucmm/Mouse (NucMM-M)/mouse"
 file_extension: .png
 color_mode: grayscale
 invert: false
@@ -7,3 +7,5 @@ resize: null
 threshold: otsu
 roi: null
 notes: "Mouse subset from NucMM dataset"
+
+

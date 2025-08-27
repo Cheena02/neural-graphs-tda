@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse
 import cv2
 import numpy as np
+import os
 import sys
 
 from src.io.loader import load_config, list_images, load_image
@@ -36,7 +37,11 @@ def preprocess_for_ph(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 def preprocess_dataset(config_yaml: str, out_dir: Path, downsample: int = 768) -> int:
     """Run preprocessing for one dataset; save *_preproc_gray.png and *_preproc_bin.png. Return #files written."""
     cfg = load_config(config_yaml)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Split outputs
+    gray_dir = out_dir / "gray"
+    bin_dir = out_dir / "bin"
+    gray_dir.mkdir(parents=True, exist_ok=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
 
     written = 0
     for p in list_images(cfg):
@@ -56,11 +61,11 @@ def preprocess_dataset(config_yaml: str, out_dir: Path, downsample: int = 768) -
                 bin_img  = cv2.resize(bin_img,  new_size, interpolation=cv2.INTER_AREA)
 
         stem = Path(p).stem
-        cv2.imwrite(str(out_dir / f"{stem}_preproc_gray.png"), gray_img)
-        cv2.imwrite(str(out_dir / f"{stem}_preproc_bin.png"),  bin_img)
+        cv2.imwrite(str(gray_dir / f"{stem}_preproc_gray.png"), gray_img)
+        cv2.imwrite(str(bin_dir / f"{stem}_preproc_bin.png"),  bin_img)
         written += 2
 
-    print(f"[preprocess] wrote {written} files to {out_dir}")
+    print(f"[preprocess] wrote {written} files to\n gray:{gray_dir}\n bin:{bin_dir}")
     return written
 
 

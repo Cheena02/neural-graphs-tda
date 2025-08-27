@@ -1,5 +1,5 @@
 name: nucmm_zebrafish
-path: data/raw_data/nucmm/Zebrafish (NucMM-Z)/zebrafish
+path: "${DATA_PATH}/raw_data/nucmm/Zebrafish (NucMM-Z)/zebrafish"
 file_extension: .png
 color_mode: grayscale
 invert: false
@@ -7,3 +7,4 @@ resize: null
 threshold: otsu
 roi: null
 notes: "Zebrafish subset from NucMM dataset"
+
