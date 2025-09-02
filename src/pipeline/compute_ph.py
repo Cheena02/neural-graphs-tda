@@ -54,22 +54,21 @@ def compute_ph_dataset(config_yaml: str, out_dir: Path, downsample: int = 768, c
                 img = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
 
         stem = Path(p).stem
-        for tag, superlevel in [("lower", False), ("upper", True)]:
-            diags = cubical_diagrams(img, superlevel=superlevel, coeff=coeff)
-            h0 = diags.get("H0", np.empty((0, 2), dtype=np.float32))
-            h1 = diags.get("H1", np.empty((0, 2), dtype=np.float32))
 
-            # Save raw diagrams
-            np.save(out_dir / "diagrams" / f"{stem}_{tag}_H0.npy", h0)
-            np.save(out_dir / "diagrams" / f"{stem}_{tag}_H1.npy", h1)
+        # SINGLE filtration only (no "lower/upper")
+        diags = cubical_diagrams(img, superlevel=False, coeff=coeff)  # sublevel by default
+        h0 = diags.get("H0", np.empty((0, 2), dtype=np.float32))
+        h1 = diags.get("H1", np.empty((0, 2), dtype=np.float32))
 
-            # Aggregate stats
-            s0, s1 = _diag_stats(h0), _diag_stats(h1)
-            rows.append({
-                "image": p, "filtration": tag,
-                "H0_n": s0["n"], "H0_total": s0["total"], "H0_max": s0["max"], "H0_median": s0["median"],
-                "H1_n": s1["n"], "H1_total": s1["total"], "H1_max": s1["max"], "H1_median": s1["median"],
-            })
+        np.save(out_dir / "diagrams" / f"{stem}_H0.npy", h0)
+        np.save(out_dir / "diagrams" / f"{stem}_H1.npy", h1)
+
+        s0, s1 = _diag_stats(h0), _diag_stats(h1)
+        rows.append({
+            "image": p, "filtration": "single",
+            "H0_n": s0["n"], "H0_total": s0["total"], "H0_max": s0["max"], "H0_median": s0["median"],
+            "H1_n": s1["n"], "H1_total": s1["total"], "H1_max": s1["max"], "H1_median": s1["median"],
+        })
 
     pd.DataFrame(rows).to_csv(out_dir / "metrics.csv", index=False)
     print(f"[PH] wrote {out_dir / 'metrics.csv'}  (rows={len(rows)})")
