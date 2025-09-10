@@ -11,22 +11,38 @@ import matplotlib.pyplot as plt
 from src.io.loader import load_config, list_images, load_image
 from src.tda.cubical import cubical_diagrams
 from src.pipeline.plotting_utils import plot_dataset
+from src.tda.thresholds import auto_min_persistence
 
 # -----------------------------------------------------------------------------
 # CONFIG: add/adjust dataset YAMLs here
 # -----------------------------------------------------------------------------
 DATASETS = [
-    ("mouse",     "config/datasets/nucmm_mouse.yaml"),
+    ("mouse", "config/datasets/nucmm_mouse.yaml"),
     ("zebrafish", "config/datasets/nucmm_zebrafish.yaml"),
+
+    ('mousebirn', 'config/datasets/mousebirn.yaml'),
 ]
 
 # Always resolve results under the project root (…/Dataset Analysis)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_ROOT = PROJECT_ROOT / "my_results"/"results_raw"   #
+RESULTS_ROOT = PROJECT_ROOT / "my_results"/"results_raw"#
 
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
+# ======= Stage controls (baseline stays original) ============================
+# Defaults keep baseline exactly as before:
+STAGE = "raw"                 # choices: "raw", "preproc", "noise"
+GAUSSIAN_SIGMA = 0.0          # <-- 0 means NO denoise in baseline
+BORDER_CLAMP_PX = 0          # <-- 0 means NO clamp in baseline
+
+# Noise controls (used only when STAGE="noise")
+NOISE_KIND  = "none"          # "none" | "gauss" | "sp" | "blur"
+NOISE_LEVEL = 0.0             # e.g., gauss sigma in [0,1]; sp prob in [0,1]; blur sigma>0
+NOISE_REPS  = 1               # save independent noisy realizations with suffix _r{1..R}
+# ============================================================================
+
+# Choose a single filtration (no lower/upper):
+SINGLE_SUPERLEVEL = False   # False=sublevel (recommended). Set True only if you want superlevel.
+
+#  ----------------------------------------------------------------------------
 def _normalize01(img: np.ndarray) -> np.ndarray:
     img = img.astype(np.float32, copy=False)
     m = float(img.max()) if img.size else 0.0
@@ -42,37 +58,6 @@ def _diag_stats(D: np.ndarray) -> dict:
         max=float(pers.max()),
         median=float(np.median(pers)),
     )
-
-def _plot_persistence_diagram(diags: dict[str, np.ndarray], out_png: Path, title: str = "Persistence Diagram") -> None:
-    """
-    Combined H0 (blue) + H1 (red) diagram with y=x diagonal, equal axes, legend.
-    """
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    plt.figure(figsize=(5, 5))
-
-    max_val = 1.0
-    if diags.get("H0") is not None and diags["H0"].size:
-        plt.scatter(diags["H0"][:, 0], diags["H0"][:, 1], s=18, label="H0")
-        max_val = max(max_val, float(diags["H0"].max()))
-    if diags.get("H1") is not None and diags["H1"].size:
-        plt.scatter(diags["H1"][:, 0], diags["H1"][:, 1], s=18, label="H1")
-        max_val = max(max_val, float(diags["H1"].max()))
-
-    # dashed diagonal y=x
-    plt.plot([0, max_val], [0, max_val], linestyle="--", linewidth=1)
-
-    plt.xlabel("Birth")
-    plt.ylabel("Death")
-    plt.title(title)
-    plt.axis("equal")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=200)
-    plt.close()
-
-# Choose a single filtration (no lower/upper):
-SINGLE_SUPERLEVEL = False   # False=sublevel (recommended). Set True only if you want superlevel.
-
 def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike,
                     downsample: int = 768, coeff: int = 2) -> None:
     cfg = load_config(ds_yaml)
@@ -84,7 +69,7 @@ def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike,
 
     rows = []
     for p in sorted(list_images(cfg)):
-        img = load_image(p, cfg.get("color_mode", "grayscale"))
+        img = load_image(p, cfg.get("color_mode"))
         if img.ndim == 3:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = _normalize01(img)
@@ -95,6 +80,20 @@ def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike,
             if m > downsample:
                 s = downsample / m
                 img = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+
+        # --- SINGLE filtration only ---
+        # --- hygiene: gentle denoise & border clamp (recommended) ---
+
+        if GAUSSIAN_SIGMA and GAUSSIAN_SIGMA > 0:
+            img = cv2.GaussianBlur(img, (0, 0), sigmaX=float(GAUSSIAN_SIGMA))
+
+        # --- OPTIONAL border clamp (off when BORDER_CLAMP_PX == 0) ---
+        b = int(BORDER_CLAMP_PX or 0)
+        if b > 0:
+            img[:b, :] = 0
+            img[-b:, :] = 0
+            img[:, :b] = 0
+            img[:, -b:] = 0
 
         # --- SINGLE filtration only ---
         diags = cubical_diagrams(img, superlevel=SINGLE_SUPERLEVEL, coeff=coeff)  # {"H0": Nx2, "H1": Mx2}
@@ -126,7 +125,7 @@ def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike,
     plot_dataset(
         diagrams_dir=out_dir / "diagrams",
         out_dir=plots_dir,
-        min_persistence=0.05,  # tweak if needed
+        min_persistence=0.00,  # tweak if needed
         mode="birth-death",  # or "birth-death"
     )
     print(f"[raw] plots: {plots_dir}")
@@ -137,5 +136,9 @@ def process_dataset(ds_yaml: str | os.PathLike, out_dir: str | os.PathLike,
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     for split, yml in DATASETS:
-        out = RESULTS_ROOT / "nucmm" / split / "raw"
-        process_dataset(yml, out)
+        cfg = load_config(yml)
+        # Prefer a YAML name if present; else use the last folder name
+        ds_key = cfg.get("name") or Path(cfg["path"]).name or split
+        out = RESULTS_ROOT / ds_key / STAGE
+        # downsample=0 for true baseline
+        process_dataset(yml, out, downsample=0)

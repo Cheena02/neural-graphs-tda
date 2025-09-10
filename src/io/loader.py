@@ -2,11 +2,47 @@
 from __future__ import annotations
 
 import os
+import numpy as np
+import h5py
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
-
+import imageio.v3 as iio
+from PIL import Image, ImageSequence
 import cv2
 import yaml
+
+def _pil_to_gray_np(im: Image.Image) -> np.ndarray:
+    return np.asarray(im.convert("L"), dtype=np.uint8)
+
+def _load_pic(path: str, mode: str = "single", slice_sel: str | int = "middle") -> np.ndarray:
+    try:
+        im = Image.open(path)
+        # multi-frame PIC? (some PICs are stacks)
+        frames = [frame.copy() for frame in ImageSequence.Iterator(im)] or [im]
+        if len(frames) == 1:
+            return _pil_to_gray_np(frames[0])               # (H,W) uint8
+        # stack: (Z,Y,X), choose slice or return whole stack later if you add 3D PH
+        if mode == "single":
+            z = len(frames)//2 if slice_sel == "middle" else int(slice_sel)
+            z = max(0, min(z, len(frames)-1))
+            return _pil_to_gray_np(frames[z])
+        stack = np.stack([_pil_to_gray_np(f) for f in frames], axis=0)  # (Z,Y,X)
+        return stack
+    except Exception:
+        # Fallback via imageio
+        try:
+            frames = iio.mimread(path)
+            if not frames:
+                arr = iio.imread(path)
+                return arr if arr.ndim == 2 else cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+            if len(frames) == 1:
+                arr = np.asarray(frames[0])
+                return arr if arr.ndim == 2 else cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+            # multi-frame
+            stack = np.stack([f if f.ndim == 2 else cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) for f in frames], 0)
+            return stack if mode != "single" else stack[stack.shape[0]//2]
+        except Exception as e:
+            raise ValueError(f"Could not read .pic file {path}: {e}")
 
 
 def _repo_root() -> Path:
@@ -121,12 +157,51 @@ def list_images(dataset_config: Dict[str, Any]) -> List[str]:
     return files
 
 
+def _load_h5_volume(h5_path: str) -> np.ndarray:
+    with h5py.File(h5_path, "r") as f:
+        # try common dataset keys first
+        for key in ("image", "raw", "data", "img", "volume"):
+            if key in f and isinstance(f[key], h5py.Dataset):
+                dset = f[key]; break
+        else:
+            # fallback: largest numeric dataset
+            best, best_sz = None, -1
+            for k, v in f.items():
+                if isinstance(v, h5py.Dataset) and np.issubdtype(v.dtype, np.number):
+                    sz = int(np.prod(v.shape))
+                    if sz > best_sz:
+                        best, best_sz = v, sz
+            if best is None:
+                raise ValueError(f"No numeric dataset found in {h5_path}")
+            dset = best
+
+        vol = dset[()]  # load to RAM
+
+    vol = np.asarray(vol)
+    vol = np.squeeze(vol)
+    if vol.ndim not in (2, 3):
+        raise ValueError(f"Unsupported H5 shape {vol.shape} in {h5_path}")
+
+    # ensure (Z, Y, X) if 3D: move the smallest axis to Z (common for microscopy)
+    if vol.ndim == 3:
+        z_axis = int(np.argmin(vol.shape))
+        if z_axis != 0:
+            vol = np.moveaxis(vol, z_axis, 0)
+
+    if np.issubdtype(vol.dtype, np.floating):
+        vol = np.nan_to_num(vol, copy=False)
+    return vol
+
 def load_image(image_path: str, color_mode: str = "grayscale"):
-    """Load an image in grayscale or color as a numpy array."""
+
+    p = Path(image_path)
+    if p.suffix.lower() == ".h5":
+        return _load_h5_volume(image_path)
+    # raster branch same as before:
     if color_mode == "grayscale":
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     else:
-        img = cv2.imread(image_path, cvIMREAD_COLOR)  # keep your original if correct
+        img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
     return img

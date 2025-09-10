@@ -1,0 +1,4 @@
+path: "${DATA_PATH}/raw_data/nucmm/Zebrafish (NucMM-Z)/Image/train"
+extensions: [".h5"]
+recursive: false
+color_mode: grayscale

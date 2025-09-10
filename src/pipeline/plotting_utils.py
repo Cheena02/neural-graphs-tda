@@ -5,6 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from glob import glob
 import sys
+import matplotlib.patheffects as PathEffects
+from matplotlib.colors import Normalize
+from matplotlib.cm import get_cmap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from src.pipeline.visual_style import apply_style, format_pd_axes, savefig
 apply_style()
 
@@ -30,22 +35,17 @@ def _plot_pd(
     out_path: Path,
     title: str,
     min_persistence: float = 0.05,
-    mode: str = "birth-death",     # classic PD (diagonal visible)
-    annotate_top_h1: int = 3,      # few labels keeps it clean
-    annotate_top_h0: int = 1
+    mode: str = "birth-death",
+    annotate_top_h1: int = 3,
+    annotate_top_h0: int = 0,        # 0 avoids clutter from H0
 ) -> None:
-    """
-    Pretty birth–death PD with diagonal + light persistence band,
-    square axes, calm markers, and a slim colorbar.
-    """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # --- clean input & threshold by persistence
+    # ---- clean + threshold (unchanged from before) --------------------------
     def _clean(D):
         D = np.asarray(D, np.float32)
         return D[np.isfinite(D).all(axis=1)] if D.ndim == 2 and D.shape[1] == 2 else np.empty((0, 2), np.float32)
-
     H0 = _clean(H0); H1 = _clean(H1)
     p0 = (H0[:, 1] - H0[:, 0]) if H0.size else np.empty((0,), np.float32)
     p1 = (H1[:, 1] - H1[:, 0]) if H1.size else np.empty((0,), np.float32)
@@ -59,92 +59,119 @@ def _plot_pd(
 
     x0, y0 = xy(H0); x1, y1 = xy(H1)
 
-    # --- figure
-    fig, ax = plt.subplots(figsize=(5.4, 5.4))
-
-    # axes formatting (draws diagonal + shaded band for birth–death)
+    # ---- figure & axes (square; controlled margins) -------------------------
+    fig, ax = plt.subplots(figsize=(6.0, 6.0))    # a touch bigger than before
     format_pd_axes(ax, mode=mode, min_persistence=min_persistence)
+    ax.margins(x=0.02, y=0.02)                    # small breathing room
 
-    # common colormap scaled by persistence
+    # ---- color scale (unchanged idea) ---------------------------------------
     cmap = get_cmap("viridis")
-    vmax = float(max(
-        (np.max(p0) if p0.size else 0.0),
-        (np.max(p1) if p1.size else 0.0),
-        min_persistence * 1.5
-    ))
+    vmax = float(max(p0.max() if p0.size else 0.0, p1.max() if p1.size else 0.0, min_persistence * 1.5))
     norm = Normalize(vmin=min_persistence, vmax=vmax)
 
-    # plots (small, calm markers)
+    # Dynamic marker sizes by persistence = visual hierarchy
     if x0.size:
-        ax.scatter(x0, y0, s=18, marker="o", c=norm(p0), cmap=cmap,
+        s0 = 14 + 18 * (norm(p0) - norm(min_persistence))
+        ax.scatter(x0, y0, s=s0, marker="o", c=norm(p0), cmap=cmap,
                    edgecolors="none", alpha=0.9, label=f"H0 (n={len(x0)})")
     if x1.size:
-        ax.scatter(x1, y1, s=22, marker="^", c=norm(p1), cmap=cmap,
+        s1 = 16 + 22 * (norm(p1) - norm(min_persistence))
+        ax.scatter(x1, y1, s=s1, marker="^", c=norm(p1), cmap=cmap,
                    edgecolors="none", alpha=0.95, label=f"H1 (n={len(x1)})")
 
-    # slim colorbar
+    # Slim colorbar with small ticks
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3.5%", pad=0.04)
+    cax = divider.append_axes("right", size="3%", pad=0.03)
     cb = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
     cb.set_label("Persistence")
+    cb.ax.tick_params(labelsize=9)
 
-    # minimal annotations (top-k by persistence)
+    # Legend INSIDE top-left so it never collides with colorbar
+    leg = ax.legend(loc="upper left", bbox_to_anchor=(0.02, 0.98), borderaxespad=0.0)
+    for txt in leg.get_texts():
+        txt.set_fontsize(10)
+
+    # Minimal title (smaller + tighter)
+    ax.set_title(title, fontsize=14, weight="medium", pad=4)
+
+    # ---- small, non-overlapping annotations ---------------------------------
     def _annotate_top(D, P, tag, k):
         if not D.size or k <= 0: return
         xx, yy = xy(D)
-        for i in np.argsort(P)[::-1][:k]:
-            ax.annotate(f"{tag}:{P[i]:.2f}", (xx[i], yy[i]),
-                        xytext=(4, 4), textcoords="offset points", fontsize=9)
+        idx = np.argsort(P)[::-1][:k]
+        for i, j in enumerate(idx):
+            # alternate nudges to avoid stacking
+            dx, dy = ((6, 6), (6, -6), (-6, 6))[i % 3]
+            t = ax.annotate(f"{tag}:{P[j]:.2f}", (xx[j], yy[j]),
+                            xytext=(dx, dy), textcoords="offset points",
+                            fontsize=9, color="black",
+                            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="0.8", alpha=0.85))
+            # subtle outline improves readability on busy backgrounds
+            t.set_path_effects([PathEffects.withStroke(linewidth=2, foreground="white")])
 
     _annotate_top(H1, p1, "H1", annotate_top_h1)
     _annotate_top(H0, p0, "H0", annotate_top_h0)
 
-    # tidy legend + title
-    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
-    ax.set_title(title, pad=6)
-
-    # save PNG + SVG
-    savefig(fig, out_path.with_suffix(""))  # writes .png and .svg
+    savefig(fig, out_path.with_suffix(""))
     plt.close(fig)
 
 
 
-def _plot_barcode(D: np.ndarray, out_png: Path, title: str,
-                  min_persistence: float = 0.04, annotate_top: int = 5) -> None:
+def _plot_barcode(
+    D: np.ndarray,
+    out_path: Path,
+    title: str,
+    min_persistence: float = 0.05,
+    annotate_top: int = 4,
+) -> None:
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
     def _clean(D):
-        if D is None or D.size == 0: return np.empty((0, 2), np.float32)
         D = np.asarray(D, np.float32)
-        return D[np.isfinite(D).all(axis=1)] if (D.ndim == 2 and D.shape[1] == 2) else np.empty((0, 2), np.float32)
-
+        return D[np.isfinite(D).all(axis=1)] if D.ndim == 2 and D.shape[1] == 2 else np.empty((0, 2), np.float32)
     D = _clean(D)
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-
-    if D.size:
-        pers = D[:, 1] - D[:, 0]
-        keep = pers >= min_persistence
-        D, pers = D[keep], pers[keep]
-        order = np.argsort(pers)[::-1]
-        D, pers = D[order], pers[order]
-
-    fig = plt.figure(figsize=(10.0, 4.2)); ax = plt.gca()
-    ax.axvspan(0, min_persistence, color="0.95", zorder=0)
-
     if D.size == 0:
-        ax.text(0.5, 0.5, "No intervals ≥ threshold", ha="center", va="center"); ax.set_axis_off()
-    else:
-        y = np.arange(len(D))
-        cmap = get_cmap("viridis"); norm = Normalize(vmin=min_persistence, vmax=float(pers.max()))
-        for i, (b, d) in enumerate(D):
-            ax.hlines(y[i], b, d, lw=3.0, color=cmap(norm(pers[i])), alpha=0.95)
-        for i in range(min(annotate_top, len(D))):
-            b, d = D[i]; ax.text(d, i, f"  {d-b:.2f}", va="center", fontsize=9)
+        fig, ax = plt.subplots(figsize=(10.5, 3.6), constrained_layout=True)
+        ax.text(0.5, 0.5, "No intervals ≥ threshold", ha="center", va="center")
+        ax.set_axis_off(); savefig(fig, out_path.with_suffix("")); plt.close(fig); return
 
-        ax.set_ylim(-1, len(D)); ax.set_yticks([])
-        ax.set_xlabel("Filtration value")
-        ax.set_title(f"{title}  •  n={len(D)}  •  min_pers={min_persistence}")
+    P = D[:, 1] - D[:, 0]
+    keep = P >= float(min_persistence); D, P = D[keep], P[keep]
+    order = np.argsort(P)[::-1]; D, P = D[order], P[order]
 
-    ax.grid(True, axis="x", ls=":", alpha=0.5)
-    plt.tight_layout(); plt.savefig(out_png, bbox_inches="tight"); plt.close(fig)
+    # Figure with breathing room; smaller title
+    fig, ax = plt.subplots(figsize=(10.5, 3.6), constrained_layout=True)
+    ax.axvspan(0, min_persistence, color="0.93", zorder=0)  # noise band
+    cmap = get_cmap("viridis"); norm = Normalize(vmin=min_persistence, vmax=float(max(P.max(), min_persistence * 1.05)))
+
+    y = np.arange(len(D))
+    for i, (b, d) in enumerate(D):
+        ax.hlines(y[i], b, d, lw=3.0, color=cmap(norm(P[i])), alpha=0.95)
+
+    # Label only top few bars; offset alternates to prevent overlap
+    for i in range(min(annotate_top, len(D))):
+        b, d = D[i]
+        yoff = 0.35 if (i % 2) else -0.35
+        t = ax.text(d, i + yoff, f"{(d-b):.2f}", va="center", fontsize=9,
+                    bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="0.85", alpha=0.85))
+        t.set_path_effects([PathEffects.withStroke(linewidth=2, foreground="white")])
+
+    ax.set_ylim(-1, len(D)); ax.set_yticks([])
+    ax.margins(x=0.02)  # stops right-edge numbers from being cut
+    ax.set_xlim(left=0, right=max(1.0, float(D[:, 1].max()) * 1.03))
+    ax.set_yticks([])
+    ax.set_xlabel("Filtration value")
+    ax.set_ylabel("Persistence")
+    ax.set_title(f"{title}  •  n={len(D)}  •  min_pers={min_persistence}", pad=4)
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.1))
+    ax.grid(True, axis="x", which="both", linestyle=":")
+
+    savefig(fig, out_path.with_suffix(""))
+    plt.close(fig)
+
+
 
 def plot_dataset(diagrams_dir: Path, out_dir: Path,
                  min_persistence: float = 0.04,
@@ -160,11 +187,14 @@ def plot_dataset(diagrams_dir: Path, out_dir: Path,
         H0 = np.load(diagrams_dir / f"{base}_H0.npy")
         H1 = np.load(diagrams_dir / f"{base}_H1.npy")
         _plot_pd(H0, H1, ph_dir / f"{base}_ph.png", title=base,
-                 min_persistence=min_persistence, mode=mode, annotate_top=5)
+                 min_persistence=min_persistence, mode=mode, annotate_top_h1=5,annotate_top_h0 = 1)
         _plot_barcode(H0, bc_h0 / f"{base}_H0_barcode.png",
-                      title=f"{base} • H0", min_persistence=min_persistence, annotate_top=5)
+                      title=f"{base} • H0",
+                      min_persistence=min_persistence, annotate_top=0)
+
         _plot_barcode(H1, bc_h1 / f"{base}_H1_barcode.png",
-                      title=f"{base} • H1", min_persistence=min_persistence, annotate_top=5)
+                      title=f"{base} • H1",
+                      min_persistence=min_persistence, annotate_top=0)
 
 
 
