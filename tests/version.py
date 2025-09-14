@@ -62,13 +62,27 @@ def load_volume_npy(fp: Path) -> np.ndarray:
     vol = (vol - vmin) / (vmax - vmin + 1e-8)
     return vol
 
+def pad_low(x: np.ndarray, pad: int = 2, val: float = 0.0) -> np.ndarray:
+    """Pad with a low constant so the background is one connected sea (2D or 3D)."""
+    return np.pad(x, [(pad, pad)] * x.ndim, mode="constant", constant_values=val)
+
+def smooth3d(x: np.ndarray, sigma: float = 0.6) -> np.ndarray:
+    """Light Gaussian for 3D volumes to reduce voxel artifacts; no-op if 2D or no scipy."""
+    if x.ndim != 3 or sigma <= 0:
+        return x
+    try:
+        from scipy.ndimage import gaussian_filter
+        y = gaussian_filter(x, sigma)
+        y = y.astype(np.float32, copy=False)
+        mn, mx = float(y.min()), float(y.max())
+        return (y - mn) / (mx - mn + 1e-8)
+    except Exception:
+        return x
+
 # ---------------- Plotting ----------------
 def plot_persistence_diagram(H0: np.ndarray, H1: np.ndarray, title: str, out: Path | None):
-    # gather points
     d0 = H0 if H0.size else np.empty((0, 2))
     d1 = H1 if H1.size else np.empty((0, 2))
-
-    # choose square bounds
     allv = np.concatenate([d0, d1], axis=0) if d0.size or d1.size else np.array([[0, 0]])
     mn = float(allv.min()) if allv.size else 0.0
     mx = float(allv.max()) if allv.size else 1.0
@@ -87,16 +101,12 @@ def plot_persistence_diagram(H0: np.ndarray, H1: np.ndarray, title: str, out: Pa
     plt.show()
 
 def plot_barcode(H0: np.ndarray, H1: np.ndarray, title: str, out: Path | None, max_bars: int = 200):
-    """
-    Simple barcode plot (no external helpers). Limits to max_bars for readability.
-    """
     def _plot_family(ax, D: np.ndarray, y0: int, label: str):
         for i, (b, d) in enumerate(D[:max_bars]):
             y = y0 + i
             ax.plot([b, d], [y, y], lw=2)
         ax.text(0.01, y0 + 0.2, label, va="bottom", ha="left")
 
-    # Sort by persistence (longer bars first)
     H0s = H0[np.argsort((H0[:, 1] - H0[:, 0]))[::-1]] if H0.size else H0
     H1s = H1[np.argsort((H1[:, 1] - H1[:, 0]))[::-1]] if H1.size else H1
 
@@ -114,10 +124,8 @@ def plot_barcode(H0: np.ndarray, H1: np.ndarray, title: str, out: Path | None, m
     plt.show()
 
 def plot_sorted_lengths(H0: np.ndarray, H1: np.ndarray, title: str, out: Path | None):
-    """Plot sorted persistence lengths for H0 and H1."""
     def lengths(D):
         return (D[:, 1] - D[:, 0]) if D.size else np.array([])
-
     H0_lengths = lengths(H0)
     H1_lengths = lengths(H1)
 
@@ -126,23 +134,17 @@ def plot_sorted_lengths(H0: np.ndarray, H1: np.ndarray, title: str, out: Path | 
         plt.plot(sorted(H0_lengths, reverse=True), label="H0 (components)")
     if H1_lengths.size:
         plt.plot(sorted(H1_lengths, reverse=True), label="H1 (loops)")
-
-    plt.yscale("log")  # log scale helps show noise vs signal
+    plt.yscale("log")
     plt.xlabel("Feature index (sorted)")
     plt.ylabel("Persistence length (death - birth)")
     plt.title(title)
     plt.legend()
-
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(out, dpi=160, bbox_inches="tight")
     plt.show()
 
-# --- NEW: multi-dim plots (for 3D: H2) ---
 def plot_persistence_diagram_multi(diagrams: dict[int, np.ndarray], title: str, out: Path | None):
-    """
-    diagrams: {0: H0_array, 1: H1_array, 2: H2_array (optional)}
-    """
     colors = {0: "blue", 1: "orange", 2: "green"}
     labels = {0: "H0 (components)", 1: "H1 (loops)", 2: "H2 (voids)"}
     pts = [D.reshape(-1, 2) for D in diagrams.values() if D.size]
@@ -151,7 +153,6 @@ def plot_persistence_diagram_multi(diagrams: dict[int, np.ndarray], title: str, 
         mn, mx = float(allv.min()), float(allv.max())
     else:
         mn, mx = 0.0, 1.0
-
     plt.figure(figsize=(6, 6))
     for dim, D in diagrams.items():
         if D.size:
@@ -166,18 +167,13 @@ def plot_persistence_diagram_multi(diagrams: dict[int, np.ndarray], title: str, 
     plt.show()
 
 def plot_barcode_multi(diagrams: dict[int, np.ndarray], title: str, out: Path | None, max_bars: int = 200):
-    """
-    Simple barcode for H0/H1/H2 if present. Sort each by persistence (desc).
-    """
     labels = {0: "H0", 1: "H1", 2: "H2"}
-    # sort bars in each dim by length
     sortedD = {}
     for dim, D in diagrams.items():
         if D.size:
             lens = (D[:, 1] - D[:, 0])
             idx = np.argsort(lens)[::-1]
             sortedD[dim] = D[idx][:max_bars]
-    # lay them in blocks
     fig, ax = plt.subplots(figsize=(10, 6))
     y = 0
     for dim in sorted(sortedD.keys()):
@@ -187,7 +183,7 @@ def plot_barcode_multi(diagrams: dict[int, np.ndarray], title: str, out: Path | 
             ax.plot([b, d], [y, y], lw=2)
             y += 1
         ax.text(0.01, start_y + 0.2, labels.get(dim, f"H{dim}"), va="bottom")
-        y += 2  # gap between blocks
+        y += 2
     ax.set_xlabel("Filtration value"); ax.set_ylabel("Bar index")
     ax.set_title(title)
     if out:
@@ -195,36 +191,32 @@ def plot_barcode_multi(diagrams: dict[int, np.ndarray], title: str, out: Path | 
         fig.savefig(out, dpi=160, bbox_inches="tight")
     plt.show()
 
-# ---------------- Main ----------------
-def main():
-    ap = argparse.ArgumentParser(description="PH on grayscale 2D image or 3D volume via Cubical Complex (GUDHI).")
-    ap.add_argument("image", type=Path, help="Path to 2D image (.png/.jpg/.tif) or 3D volume (.npy)")
-    ap.add_argument("--invert", action="store_true", help="(2D only) Invert grayscale (use if loops should be bright).")
-    ap.add_argument("--no-denoise", action="store_true", help="(2D only) Disable light Gaussian denoise.")
-    ap.add_argument("--clahe", action="store_true", help="(2D only) Apply local contrast (CLAHE).")
-    ap.add_argument("--min-persistence", type=float, default=0.02, help="Filter tiny features (0–1).")
-    ap.add_argument("--outdir", type=Path, default=Path("ph_results"))
-    args = ap.parse_args()
-
-    stem = args.image.stem
-    is_vol = is_volume_path(args.image)
+# ---------------- Single + Batch runners ----------------
+def run_single(path: Path, outdir: Path,
+               invert: bool = False, no_denoise: bool = False,
+               clahe: bool = False, min_persistence: float = 0.02):
+    stem = path.stem
+    is_vol = is_volume_path(path)
 
     if is_vol:
-        data01 = load_volume_npy(args.image)  # 3D array [0,1]
+        data01 = load_volume_npy(path)
     else:
-        img = load_grayscale(args.image)      # 2D array
+        img = load_grayscale(path)
         data01 = preproc_for_cubical(
             img,
-            denoise=not args.no_denoise,
-            invert=args.invert,
-            clahe=args.clahe,
+            denoise=not no_denoise,
+            invert=invert,
+            clahe=clahe,
         )
 
-    # Build Cubical Complex on 2D or 3D; GUDHI handles N-D
-    cc = build_cubical(data01)
-    cc.persistence(homology_coeff_field=2, min_persistence=args.min_persistence)
+    # --- improve robustness ---
+    if is_vol:
+        data01 = smooth3d(data01, sigma=0.6)
+    data01 = pad_low(data01, pad=2, val=0.0)
 
-    # Collect intervals
+    cc = build_cubical(data01)
+    cc.persistence(homology_coeff_field=2, min_persistence=min_persistence)
+
     H0 = cc.persistence_intervals_in_dimension(0)
     H1 = cc.persistence_intervals_in_dimension(1)
     diagrams = {0: H0, 1: H1}
@@ -235,121 +227,63 @@ def main():
     else:
         nH2 = 0
 
-    # Quick stats
     nH0, nH1 = H0.shape[0], H1.shape[0]
     if is_vol:
-        print(f"Found {nH0} H0 (components), {nH1} H1 (loops), {nH2} H2 (voids) "
-              f"with min_persistence >= {args.min_persistence}")
+        print(f"{path.name}: H0={nH0}, H1={nH1}, H2={nH2} (min_persistence>={min_persistence})")
     else:
-        print(f"Found {nH0} H0 (components), {nH1} H1 (loops) "
-              f"with min_persistence >= {args.min_persistence}")
+        print(f"{path.name}: H0={nH0}, H1={nH1} (min_persistence>={min_persistence})")
 
-    # Save/plot
-    args.outdir.mkdir(parents=True, exist_ok=True)
-    np.save(args.outdir / f"{stem}_H0.npy", H0)
-    np.save(args.outdir / f"{stem}_H1.npy", H1)
+    outdir.mkdir(parents=True, exist_ok=True)
+    np.save(outdir / f"{stem}_H0.npy", H0)
+    np.save(outdir / f"{stem}_H1.npy", H1)
     if is_vol:
-        np.save(args.outdir / f"{stem}_H2.npy", diagrams[2])
+        np.save(outdir / f"{stem}_H2.npy", diagrams[2])
 
-    # Plots
     if is_vol:
         plot_persistence_diagram_multi(diagrams, f"Persistence Diagram — {stem}",
-                                       args.outdir / f"{stem}_diagram.png")
+                                       outdir / f"{stem}_diagram.png")
         plot_barcode_multi(diagrams, f"Persistence Barcode — {stem}",
-                           args.outdir / f"{stem}_barcode.png")
-        # (optional) you can add a sorted-lengths plot for H2 similarly if you want
+                           outdir / f"{stem}_barcode.png")
         plot_sorted_lengths(H0, H1, f"Sorted Persistence Lengths — {stem}",
-                            args.outdir / f"{stem}_lengths.png")
+                            outdir / f"{stem}_lengths.png")
     else:
         plot_persistence_diagram(H0, H1, f"Persistence Diagram — {stem}",
-                                 args.outdir / f"{stem}_diagram.png")
+                                 outdir / f"{stem}_diagram.png")
         plot_barcode(H0, H1, f"Persistence Barcode — {stem}",
-                     args.outdir / f"{stem}_barcode.png")
+                     outdir / f"{stem}_barcode.png")
         plot_sorted_lengths(H0, H1, f"Sorted Persistence Lengths — {stem}",
-                            args.outdir / f"{stem}_lengths.png")
-def run_batch(indir: Path, outdir: Path, min_persistence: float = 0.02,
-              invert: bool = False, no_denoise: bool = False, clahe: bool = False):
-    """
-    Run PH on all supported files in a directory (2D: png/jpg/tif, 3D: npy).
-    """
+                            outdir / f"{stem}_lengths.png")
+
+def run_batch(indir: Path, outdir: Path, **kwargs):
     exts2d = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
     exts3d = {".npy"}
     files = [f for f in indir.iterdir() if f.suffix.lower() in (exts2d | exts3d)]
     if not files:
         print(f"No supported images/volumes found in {indir}")
         return
-
     for f in sorted(files):
-        print("="*60)
-        print(f"Processing {f.name}")
-        stem = f.stem
-        is_vol = is_volume_path(f)
-
-        if is_vol:
-            data01 = load_volume_npy(f)
-        else:
-            img = load_grayscale(f)
-            data01 = preproc_for_cubical(
-                img,
-                denoise=not no_denoise,
-                invert=invert,
-                clahe=clahe,
-            )
-
-        cc = build_cubical(data01)
-        cc.persistence(homology_coeff_field=2, min_persistence=min_persistence)
-
-        H0 = cc.persistence_intervals_in_dimension(0)
-        H1 = cc.persistence_intervals_in_dimension(1)
-        diagrams = {0: H0, 1: H1}
-        if is_vol:
-            H2 = cc.persistence_intervals_in_dimension(2)
-            diagrams[2] = H2
-            nH2 = H2.shape[0]
-        else:
-            nH2 = 0
-
-        nH0, nH1 = H0.shape[0], H1.shape[0]
-        if is_vol:
-            print(f"  H0={nH0}, H1={nH1}, H2={nH2}")
-        else:
-            print(f"  H0={nH0}, H1={nH1}")
-
-        # Save intervals
-        outdir.mkdir(parents=True, exist_ok=True)
-        np.save(outdir / f"{stem}_H0.npy", H0)
-        np.save(outdir / f"{stem}_H1.npy", H1)
-        if is_vol:
-            np.save(outdir / f"{stem}_H2.npy", diagrams[2])
-
-        # Plots
-        if is_vol:
-            plot_persistence_diagram_multi(diagrams, f"PD — {stem}", outdir / f"{stem}_diagram.png")
-            plot_barcode_multi(diagrams, f"Barcode — {stem}", outdir / f"{stem}_barcode.png")
-            plot_sorted_lengths(H0, H1, f"Sorted Lengths (H0/H1) — {stem}", outdir / f"{stem}_lengths.png")
-        else:
-            plot_persistence_diagram(H0, H1, f"PD — {stem}", outdir / f"{stem}_diagram.png")
-            plot_barcode(H0, H1, f"Barcode — {stem}", outdir / f"{stem}_barcode.png")
-            plot_sorted_lengths(H0, H1, f"Sorted Lengths — {stem}", outdir / f"{stem}_lengths.png")
+        print("=" * 60)
+        run_single(f, outdir, **kwargs)
 
 if __name__ == "__main__":
-    if __name__ == "__main__":
-        ap = argparse.ArgumentParser(description="Persistent Homology runner")
-        ap.add_argument("path", type=Path, help="Path to a single image/volume OR a folder")
-        ap.add_argument("--invert", action="store_true", help="(2D only) Invert grayscale")
-        ap.add_argument("--no-denoise", action="store_true", help="(2D only) Disable Gaussian denoise")
-        ap.add_argument("--clahe", action="store_true", help="(2D only) Apply CLAHE contrast")
-        ap.add_argument("--min-persistence", type=float, default=0.02)
-        ap.add_argument("--outdir", type=Path, default=Path("ph_results"))
-        args = ap.parse_args()
+    ap = argparse.ArgumentParser(description="Persistent Homology runner (2D or 3D, single file or batch folder).")
+    ap.add_argument("path", type=Path, help="Path to a single image/volume OR a folder")
+    ap.add_argument("--invert", action="store_true", help="(2D only) Invert grayscale")
+    ap.add_argument("--no-denoise", action="store_true", help="(2D only) Disable Gaussian denoise")
+    ap.add_argument("--clahe", action="store_true", help="(2D only) Apply local contrast (CLAHE)")
+    ap.add_argument("--min-persistence", type=float, default=0.02)
+    ap.add_argument("--outdir", type=Path, default=Path("ph_results"))
+    args = ap.parse_args()
 
-        if args.path.is_dir():
-            run_batch(args.path, args.outdir,
-                      min_persistence=args.min_persistence,
-                      invert=args.invert,
-                      no_denoise=args.no_denoise,
-                      clahe=args.clahe)
-        else:
-            # run the single-file mode (your old main logic)
-            main()
-
+    if args.path.is_dir():
+        run_batch(args.path, args.outdir,
+                  invert=args.invert,
+                  no_denoise=args.no_denoise,
+                  clahe=args.clahe,
+                  min_persistence=args.min_persistence)
+    else:
+        run_single(args.path, args.outdir,
+                   invert=args.invert,
+                   no_denoise=args.no_denoise,
+                   clahe=args.clahe,
+                   min_persistence=args.min_persistence)
