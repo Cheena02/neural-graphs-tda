@@ -1,0 +1,21 @@
+Error in load_config: Dataset path not found: \home\ubuntu\neural-graphs-tda\synthetic_data
+Traceback (most recent call last):
+  File "C:\Users\61431\Downloads\neural-graphs-tda\home\ubuntu\neural-graphs-tda\src\utils\logger.py", line 127, in wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\61431\Downloads\neural-graphs-tda\home\ubuntu\neural-graphs-tda\src\io\enhanced_loader.py", line 158, in load_config
+    raise FileNotFoundError(f"Dataset path not found: {dataset_path}")
+FileNotFoundError: Dataset path not found: \home\ubuntu\neural-graphs-tda\synthetic_data
+Pipeline execution failed: Dataset path not found: \home\ubuntu\neural-graphs-tda\synthetic_data
+Traceback (most recent call last):
+  File "C:\Users\61431\Downloads\neural-graphs-tda\home\ubuntu\neural-graphs-tda\src\experiments\run_full_pipeline.py", line 42, in run
+    config = self.loader.load_config(self.config_path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\61431\Downloads\neural-graphs-tda\home\ubuntu\neural-graphs-tda\src\utils\logger.py", line 127, in wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\61431\Downloads\neural-graphs-tda\home\ubuntu\neural-graphs-tda\src\io\enhanced_loader.py", line 158, in load_config
+    raise FileNotFoundError(f"Dataset path not found: {dataset_path}")
+FileNotFoundError: Dataset path not found: \home\ubuntu\neural-graphs-tda\synthetic_data
+No active experiment to end.
+No metrics were generated.

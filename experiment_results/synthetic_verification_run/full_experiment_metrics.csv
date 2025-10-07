@@ -1,0 +1,5 @@
+image_name,stage,variant,betti_0,betti_1,h0_total_persistence,h1_total_persistence
+synthetic_annulus,baseline,clean,1,1,0.0,0.003921568393707275
+synthetic_figure_eight,baseline,clean,1,0,0.0,0.0
+synthetic_solid_circle,baseline,clean,1,0,0.0,0.0
+synthetic_two_circles,baseline,clean,2,0,0.003921568393707275,0.0
