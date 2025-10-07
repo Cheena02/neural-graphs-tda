@@ -1,0 +1,5 @@
+name: NucMM_Sample
+path: /home/ubuntu/neural-graphs-tda/  # Path to the directory with your sample image
+extensions: [.png]
+color_mode: grayscale
+

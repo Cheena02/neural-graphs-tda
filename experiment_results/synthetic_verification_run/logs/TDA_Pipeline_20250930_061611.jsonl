@@ -1,0 +1,42 @@
+🔧 Enhanced Data Loader initialized
+💾 Memory limit: 8.0 GB
+🎨 Visualizer initialized. Plots will be saved to: experiment_results/synthetic_verification_run/plots
+🔧 Denoising Strategies initialized
+📋 Loading configuration: datasets/synthetic_verification.yaml
+✅ Configuration loaded successfully
+🚀 Starting experiment: TDA Analysis: Synthetic_Verification (ID: b13cdae3-d9b6-47d8-aab0-06bae92d84ae)
+Parameters: {
+  "name": "Synthetic_Verification",
+  "path": "/home/ubuntu/neural-graphs-tda/synthetic_data",
+  "extensions": [
+    ".png"
+  ],
+  "color_mode": "grayscale",
+  "recursive": false,
+  "max_files": null,
+  "validation_enabled": true
+}
+🔍 Discovering files in: /home/ubuntu/neural-graphs-tda/synthetic_data
+📁 Recursive search: False
+🎯 Target extensions: ('.png',)
+✅ Discovered 4 files
+🌊 Starting dataset streaming: 4 files, batch_size=1
+--- Processing image: synthetic_annulus ---
+TDA Results: {'image_name': 'synthetic_annulus', 'stage': 'baseline', 'variant': 'clean', 'h0_count': 0, 'h1_count': 1, 'h0_total_persistence': np.float64(0.0), 'h1_total_persistence': np.float64(0.003921568393707275), 'h0_max_persistence': 0, 'h1_max_persistence': np.float64(0.003921568393707275)}
+Saved persistence diagram to: experiment_results/synthetic_verification_run/plots/synthetic_annulus_baseline_diag.png
+Saved persistence barcode to: experiment_results/synthetic_verification_run/plots/synthetic_annulus_baseline_barcode.png
+--- Processing image: synthetic_figure_eight ---
+TDA Results: {'image_name': 'synthetic_figure_eight', 'stage': 'baseline', 'variant': 'clean', 'h0_count': 0, 'h1_count': 0, 'h0_total_persistence': np.float64(0.0), 'h1_total_persistence': np.float64(0.0), 'h0_max_persistence': 0, 'h1_max_persistence': 0}
+Saved persistence diagram to: experiment_results/synthetic_verification_run/plots/synthetic_figure_eight_baseline_diag.png
+Saved persistence barcode to: experiment_results/synthetic_verification_run/plots/synthetic_figure_eight_baseline_barcode.png
+--- Processing image: synthetic_solid_circle ---
+TDA Results: {'image_name': 'synthetic_solid_circle', 'stage': 'baseline', 'variant': 'clean', 'h0_count': 0, 'h1_count': 0, 'h0_total_persistence': np.float64(0.0), 'h1_total_persistence': np.float64(0.0), 'h0_max_persistence': 0, 'h1_max_persistence': 0}
+Saved persistence diagram to: experiment_results/synthetic_verification_run/plots/synthetic_solid_circle_baseline_diag.png
+Saved persistence barcode to: experiment_results/synthetic_verification_run/plots/synthetic_solid_circle_baseline_barcode.png
+--- Processing image: synthetic_two_circles ---
+TDA Results: {'image_name': 'synthetic_two_circles', 'stage': 'baseline', 'variant': 'clean', 'h0_count': 1, 'h1_count': 0, 'h0_total_persistence': np.float64(0.003921568393707275), 'h1_total_persistence': np.float64(0.0), 'h0_max_persistence': np.float64(0.003921568393707275), 'h1_max_persistence': 0}
+Saved persistence diagram to: experiment_results/synthetic_verification_run/plots/synthetic_two_circles_baseline_diag.png
+Saved persistence barcode to: experiment_results/synthetic_verification_run/plots/synthetic_two_circles_baseline_barcode.png
+✅ Dataset streaming completed
+Saved all metrics to: experiment_results/synthetic_verification_run/full_experiment_metrics.csv
+🏁 Experiment b13cdae3-d9b6-47d8-aab0-06bae92d84ae finished with status: completed in 2.70s.

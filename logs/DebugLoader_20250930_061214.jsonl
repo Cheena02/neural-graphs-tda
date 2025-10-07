@@ -1,0 +1,32 @@
+🔧 Enhanced Data Loader initialized
+💾 Memory limit: 8.0 GB
+Attempting to load configuration: datasets/synthetic_verification.yaml
+Starting operation: load_config
+📋 Loading configuration: datasets/synthetic_verification.yaml
+✅ Configuration loaded successfully
+📊 Config details: {
+  "name": "Synthetic_Verification",
+  "path": "/home/ubuntu/neural-graphs-tda/synthetic_data",
+  "extensions": [
+    ".png"
+  ],
+  "color_mode": "grayscale",
+  "recursive": false,
+  "max_files": null,
+  "validation_enabled": true
+}
+Finished operation: load_config in 0.00s. Memory delta: 0.26 MB
+Configuration loaded successfully.
+Starting operation: discover_files
+🔍 Discovering files in: /home/ubuntu/neural-graphs-tda/synthetic_data
+📁 Recursive search: False
+🎯 Target extensions: ('.png',)
+✅ Discovered 4 files
+Discovered files: ['/home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_annulus.png', '/home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_figure_eight.png', '/home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_solid_circle.png', '/home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_two_circles.png']
+Finished operation: discover_files in 0.00s. Memory delta: 0.00 MB
+File discovery complete. Found 4 file(s).
+Files found:
+- /home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_annulus.png
+- /home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_figure_eight.png
+- /home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_solid_circle.png
+- /home/ubuntu/neural-graphs-tda/synthetic_data/synthetic_two_circles.png
