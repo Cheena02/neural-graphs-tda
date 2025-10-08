@@ -1,4 +1,0 @@
-path: "${DATA_PATH}/raw_data/nucmm/Mouse (NucMM-M)//Image/train"
-extensions: [".h5"]
-recursive: false
-color_mode: grayscale   # ignored for .h5, kept for compatibility

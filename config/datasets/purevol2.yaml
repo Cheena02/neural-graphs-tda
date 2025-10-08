@@ -1,5 +1,0 @@
-# config/datasets/pur2_vol.yaml
-path: "${DATA_PATH}/raw_data/pur2_vol/Deconvolution"
-extensions: [".png", ".jpg", ".tif", ".tiff"]
-recursive: true
-color_mode: grayscale

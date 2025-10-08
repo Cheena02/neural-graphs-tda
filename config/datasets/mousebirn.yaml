@@ -1,4 +1,0 @@
-# config/datasets/pur2_vol.yaml
-path: "${DATA_PATH}/raw_data/MOUSEBIRN"
-extensions: [".png", ".jpg", ".tif", ".tiff",]
-recursive: true

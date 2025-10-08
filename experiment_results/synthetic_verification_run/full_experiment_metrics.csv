@@ -1,5 +1,13 @@
 image_name,stage,variant,betti_0,betti_1,h0_total_persistence,h1_total_persistence
-synthetic_annulus,baseline,clean,1,1,0.0,0.003921568393707275
-synthetic_figure_eight,baseline,clean,1,0,0.0,0.0
-synthetic_solid_circle,baseline,clean,1,0,0.0,0.0
-synthetic_two_circles,baseline,clean,2,0,0.003921568393707275,0.0
+A_disk,baseline,clean,1,1,0.0,0.003921568859368563
+B_two_disks,baseline,clean,1,1,0.0,0.003921568859368563
+C_single_ring,baseline,clean,2,1,0.003921568859368563,0.003921568859368563
+D_many_rings,baseline,clean,29,2,0.10980392806231976,0.007843137718737125
+E_tree_branch,baseline,clean,1,0,0.0,0.0
+F_grid_lattice,baseline,clean,64,0,0.24705883814021945,0.0
+G_maze_loopy,baseline,clean,59,0,0.22745099384337664,0.0
+H_swiss_cheese,baseline,clean,69,824,0.26666668243706226,3.2313727401196957
+synthetic_annulus,baseline,clean,2,1,0.003921568859368563,0.003921568859368563
+synthetic_figure_eight,baseline,clean,1,1,0.0,0.003921568859368563
+synthetic_solid_circle,baseline,clean,1,1,0.0,0.003921568859368563
+synthetic_two_circles,baseline,clean,1,2,0.0,0.007843137718737125

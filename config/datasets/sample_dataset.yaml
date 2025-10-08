@@ -1,9 +1,0 @@
-name: sample_dataset
-path: "${DATA_PATH}/raw_data/sample_images"
-file_extension: ".png"
-color_mode: grayscale
-invert: false
-resize: null
-threshold: otsu
-roi: null
-notes: "Sample images for testing pipeline"
