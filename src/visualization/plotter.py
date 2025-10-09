@@ -19,10 +19,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Union, List, Tuple, Dict, Any, Optional
-import seaborn as sns
 import gudhi
 from src.utils.logger import TDALogger, log_method_call
-import matplotlib.patheffects as pe
+
 
 
 class TDAVisualizer:
@@ -50,8 +49,10 @@ class TDAVisualizer:
 
         # Alpha for transparency
         self.alpha = 0.8
+
     @log_method_call
     def plot_persistence_diagram(self, persistence: list, title: str, output_filename: str):
+        plt.style.use('default')
         plt.figure(figsize=(8, 8))
         gudhi.plot_persistence_diagram(persistence)
         plt.title(title, fontsize=16)
@@ -66,189 +67,96 @@ class TDAVisualizer:
                                  title: str,
                                  output_filename: str):
         """
-        Plot persistence barcode with tight bounds and no white space.
+        Plot persistence barcode with self-contained styling to guarantee correct bar colors.
         """
-        total_bars = len(persistence)
+        # Reset style to prevent any possible outside interference.
+        plt.style.use("default")
 
-        # Compact figure size
-        if total_bars <= 2:
-            fig_height = 2.5
-        elif total_bars <= 5:
-            fig_height = 4
-        else:
-            fig_height = 6
+        # --- START OF THE DEFINITIVE FIX ---
+        # Define the colors LOCALLY inside the function. This makes it immune to class state issues.
+        color_map = {
+            0: "#DC143C",  # Crimson Red for H0
+            1: "#4682B4",  # Steel Blue for H1
+            2: "#32CD32",  # Lime Green for H2 (future-proof)
+        }
+        # --- END OF THE DEFINITIVE FIX ---
 
-        plt.figure(figsize=(8, fig_height))  # Reduced width
-        ax = plt.gca()
+        # Filtering logic to prevent a solid black plot (this part is working correctly)
+        max_intervals = 250
+        if len(persistence) > max_intervals:
+            if self.logger:
+                self.logger.info(
+                    f"Filtering {len(persistence)} intervals to the most significant {max_intervals} for barcode clarity.")
+            persistence.sort(key=lambda x: (x[1][1] - x[1][0]) if np.isfinite(x[1][1]) else np.inf, reverse=True)
+            persistence = persistence[:max_intervals]
 
-        # Organize data and find bounds
-        dims = {}
-        all_births = []
-        all_finite_deaths = []
+        if not persistence:
+            if self.logger:
+                self.logger.warning(f"No persistence data to plot for {output_filename}")
+            return
 
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Data preparation (this part is fine)
+        dims, all_births, all_finite_deaths = {}, [], []
         for dim, (birth, death) in persistence:
-            if dim not in dims:
-                dims[dim] = []
+            if dim not in dims: dims[dim] = []
             dims[dim].append((birth, death))
             all_births.append(birth)
-            if np.isfinite(death):
-                all_finite_deaths.append(death)
+            if np.isfinite(death): all_finite_deaths.append(death)
 
-        # Calculate tight x-axis bounds
+        # X-axis limit calculation (this part is fine)
         if all_births and all_finite_deaths:
-            min_val = min(min(all_births), min(all_finite_deaths))
-            max_val = max(max(all_births), max(all_finite_deaths))
-            range_val = max_val - min_val
-            margin = max(range_val * 0.05, 0.001)  # Small margin
-            x_min = min_val - margin
-            x_max = max_val + margin
+            min_val, max_val = min(all_births), max(all_finite_deaths)
+            margin = max((max_val - min_val) * 0.05, 0.001)
+            x_min, x_max = min_val - margin, max_val + margin
         else:
             x_min, x_max = 0, 1
+        x_max += margin
 
-        # extra room on the right so the ∞ glyph isn't clipped
-        x_max = x_max + margin
-
-
-        # Plot bars
+        # --- Plotting Loop ---
         y_pos = 0
-        dim_labels = {0: 'H₀', 1: 'H₁', 2: 'H₂'}
-
+        dim_labels = {0: "H₀", 1: "H₁", 2: "H₂"}
         for dim in sorted(dims.keys()):
             intervals = sorted(dims[dim], key=lambda x: x[0])
 
-            # use a dedicated name for bar color (do not call it "color")
-            bar_color = self.enhanced_colors.get(f'H{dim}', f'C{dim}')
+            # Use the LOCAL color_map to get the correct color for the current dimension.
+            bar_color = color_map.get(dim, "#333333")
 
             for birth, death in intervals:
                 if np.isfinite(death):
                     bar_length = death - birth
-                    ax.barh(
-                        y_pos, bar_length, left=birth, height=0.7,
-                        color=bar_color, alpha=self.alpha,  # <-- use bar_color
-                        edgecolor='white', linewidth=1
-                    )
-
-                    # Label only meaningful bars (optional: tweak 0.02–0.05)
-                    if bar_length > (x_max - x_min) * 0.03:
-                        mid_point = birth + bar_length / 2
-                        txt = ax.text(
-                            mid_point, y_pos, f'{bar_length:.4f}',
-                            ha='center', va='center', fontsize=9,
-                            color='black', weight='bold'
-                        )
-                        # optional: uncomment if you added patheffects import
-                        # txt.set_path_effects([pe.Stroke(linewidth=1.2, foreground="white"), pe.Normal()])
+                    ax.barh(y_pos, bar_length, left=birth, height=0.8, color=bar_color, edgecolor=None)
                 else:
-                    # Infinite bar
-                    ax.barh(
-                        y_pos, x_max - birth, left=birth, height=0.7,
-                        color=bar_color, alpha=self.alpha,  # <-- use bar_color
-                        edgecolor='white', linewidth=1
-                    )
-                    txt = ax.text(
-                        x_max + (x_max - x_min) * 0.02, y_pos, '∞',
-                        va='center', color='black', fontsize=12, weight='bold'
-                    )
-                    # optional outline:
-                    # txt.set_path_effects([pe.Stroke(linewidth=1.2, foreground="white"), pe.Normal()])
-        # for dim in sorted(dims.keys()):
-        #     intervals = sorted(dims[dim], key=lambda x: x[0])
-        #     color = self.enhanced_colors.get(f'H{dim}', f'C{dim}')
-        #
-        #     for birth, death in intervals:
-        #         if np.isfinite(death):
-        #             bar_length = death - birth
-        #             ax.barh(y_pos, bar_length, left=birth, height=0.7,
-        #                     color=color, alpha=self.alpha,
-        #                     edgecolor='white', linewidth=1)
-        #
-        #             # Add persistence value
-        #             if bar_length > (x_max - x_min) * 0.01:  # Only if significant relative to range
-        #                 mid_point = birth + bar_length / 2
-        #                 ax.text(mid_point, y_pos, f'{bar_length:.4f}',
-        #                         ha='center', va='center', fontsize=9,
-        #                         color='black', weight='bold')
-        #         else:
-        #             # Infinite bar
-        #             ax.barh(y_pos, x_max - birth, left=birth, height=0.7,
-        #                     color=color, alpha=self.alpha,
-        #                     edgecolor='white', linewidth=1)
-        #             ax.text(x_max + (x_max - x_min) * 0.02, y_pos, '∞',
-        #                     va='center', color='black', fontsize=12, weight='bold')
-
+                    ax.barh(y_pos, x_max - birth, left=birth, height=0.8, color=bar_color, edgecolor=None)
+                    ax.text(x_max + (x_max - x_min) * 0.01, y_pos, "∞", va="center", color="black", fontsize=12)
                 y_pos += 1
 
-        # Add dimension labels
+        # --- Labeling Loop ---
         y_pos = 0
         for dim in sorted(dims.keys()):
-            intervals = dims[dim]
-            if intervals:
+            if intervals := dims[dim]:
                 mid_y = y_pos + len(intervals) / 2 - 0.5
-                label_color = self.enhanced_colors.get(f'H{dim}', f'C{dim}')
-                ax.text(
-                    x_min - (x_max - x_min) * 0.05, mid_y, dim_labels.get(dim, f'H{dim}'),
-                    ha='right', va='center', fontsize=12, weight='bold', color=label_color
-                )
-        # for dim in sorted(dims.keys()):
-        #     intervals = dims[dim]
-        #     if intervals:
-        #         mid_y = y_pos + len(intervals) / 2 - 0.5
-        #         color = self.enhanced_colors.get(f'H{dim}', f'C{dim}')
-        #         ax.text(x_min - (x_max - x_min) * 0.05, mid_y, dim_labels.get(dim, f'H{dim}'),
-        #                 ha='right', va='center', fontsize=12, weight='bold', color=color)
+                label_color = color_map.get(dim, "#333333")
+                ax.text(x_min - (x_max - x_min) * 0.05, mid_y, dim_labels.get(dim, f"H{dim}"), ha="right", va="center",
+                        fontsize=14, weight="bold", color=label_color)
                 y_pos += len(intervals)
 
-        # Set tight limits
-        ax.set_xlim(x_min, x_max)  # TIGHT X-LIMITS
-        ax.set_ylim(-0.4, total_bars - 0.6)  # TIGHT Y-LIMITS
+        # Final styling
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(-1, len(persistence))
+        ax.set_xlabel("Filtration Parameter", fontweight="bold", fontsize=12)
+        ax.set_ylabel("Features", fontweight="bold", fontsize=12)
+        ax.set_title(title, fontweight="bold", pad=15, fontsize=16)
+        ax.set_yticks([])  # Hide the y-axis ticks
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(True, which="major", axis="x", linestyle=":", color="#cccccc")
 
-        # Styling
-        ax.set_facecolor(self.enhanced_colors['background'])
-        ax.grid(True, alpha=0.3, axis='x', color=self.enhanced_colors['grid'])
-        ax.set_xlabel('Filtration Parameter', fontweight='bold')
-        ax.set_ylabel('Features', fontweight='bold')
-        ax.set_title(title, fontweight='bold', pad=10)
-        ax.set_yticks([])
-
-        # Remove extra margins
-        plt.subplots_adjust(left=0.15, right=0.95, top=0.9, bottom=0.15)
-
-        # Save with minimal padding
+        plt.tight_layout()
         output_path = self.output_dir / f"{output_filename}.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight',
-                    facecolor='white', pad_inches=0.01)
-        plt.close()
-
-        if self.logger:
-            self.logger.info(f" Persistence barcode saved to: {output_path}")
-
-    @log_method_call
-    def plot_betti_curves(self, 
-                          betti_numbers: np.ndarray, 
-                          title: str, 
-                          output_filename: str):
-        """
-        Plot Betti curves over filtration values.
-
-        Args:
-            betti_numbers: Array of Betti numbers over filtration steps.
-            title: Title for the plot.
-            output_filename: Filename for the saved plot.
-        """
-        plt.figure(figsize=(10, 6))
-        for i in range(betti_numbers.shape[1]):
-            plt.plot(betti_numbers[:, i], label=f'Betti {i}')
-        
-        plt.title(title, fontsize=16)
-        plt.xlabel("Filtration Step")
-        plt.ylabel("Betti Number")
-        plt.legend()
-        plt.grid(True)
-        
-        output_path = self.output_dir / f"{output_filename}.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        self.logger.info(f"Saved Betti curves to: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        if self.logger: self.logger.info(f"Persistence barcode saved to: {output_path}")
 
     @log_method_call
     def compare_persistence_diagrams(self, 
