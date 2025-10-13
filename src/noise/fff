@@ -25,3 +25,61 @@ TDA_Analysis_Results/
         └── nucmm/
         same structure and so on
 
+def run_enhanced_analysis(self, enable_comparisons=True):
+    """Run analysis with supervisor-requested enhancements."""
+
+    # Always run your existing analysis first
+    self.run()
+
+    if enable_comparisons:
+        self.logger.info("🔬 Adding comparative analysis...")
+
+        # Simple comparative analysis on a few test images
+        test_images = [
+            "16_512v.jpg",  # Use your known working image
+            # Add more image names if you want
+        ]
+
+        for dataset_name in ["MOUSEBIRN"]:  # Use your known dataset
+            dataset_path = self.onedrive_path / dataset_name / "images"
+
+            if not dataset_path.exists():
+                self.logger.warning(f"Dataset path not found: {dataset_path}")
+                continue
+
+            for image_name in test_images:
+                image_file = dataset_path / image_name
+
+                if not image_file.exists():
+                    continue
+
+                try:
+                    # Load image
+                    image = cv2.imread(str(image_file), cv2.IMREAD_GRAYSCALE)
+                    if image is None:
+                        continue
+
+                    image_float = image.astype(np.float32) / 255.0
+
+                    self.logger.info(f"  🔍 Comparative analysis for {image_name}")
+
+                    # Test multiple filtrations
+                    filtration_results = self.test_filtration_methods(image_float, image_name)
+
+                    # Test stability
+                    noise = np.random.normal(0, 0.01, image_float.shape)
+                    noisy_image = np.clip(image_float + noise, 0, 1)
+                    stability_results = self.compute_stability_metrics(image_float, noisy_image, image_name)
+
+                    # Store results
+                    enhanced_result = {
+                        'image_name': image_name,
+                        'dataset': dataset_name,
+                        **filtration_results,
+                        **stability_results
+                    }
+
+                    self.enhanced_metrics.append(enhanced_result)
+
+                except Exception as e:
+                    self.logger.error(f"Enhanced analysis failed for {image_name}: {e}")
