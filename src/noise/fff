@@ -1,0 +1,27 @@
+TDA_Analysis_Results/
+    └── MOUSEBIRN/
+        └── images/
+            └── 16_512v/
+                │──baseline/
+                │   ├── 16_512v_clean_ph_barcode.png
+                |   ├── 16_512v_clean_ph_diagram.png
+                │   ├── 16_512v_clean_step_by_step.png
+                ├── Noised/
+                │   ├── 16_512v_gaussian_0.05_barcode.png
+                │   ├── 16_512v_salt_pepper_0.1_barcode.png
+                │   └── 16_512v_speckle_barcode.png
+                │   ├── 16_512v_gaussian_0.05_diagram.png
+                │   └── ...
+                │   ├── 16_512v_gaussian_0.05_step_by_step.png
+                │   └── ...
+                └── denoised/                    # Separate folder for denoised results
+                │   ├── 16_512v_gaussian_0.05_median_filter_barcode.png
+                │   ├── 16_512v_salt_pepper_0.1_bilateral_filter_barcode.png
+
+                │   ├── 16_512v_salt_pepper_0.1_bilateral_filter_ph_diagram.png
+
+                │   ├── 16_512v_salt_pepper_0.1_bilateral_filter_step_by_step.png
+                │   └── ...
+        └── nucmm/
+        same structure and so on
+

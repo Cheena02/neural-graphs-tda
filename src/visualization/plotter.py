@@ -112,6 +112,7 @@ class TDAVisualizer:
             x_min, x_max = min_val - margin, max_val + margin
         else:
             x_min, x_max = 0, 1
+            margin = 0.05
         x_max += margin
 
         # --- Plotting Loop ---
