@@ -25,6 +25,9 @@ from src.utils.logger import TDALogger, log_method_call
 from src.tda.adaptive_parameters import AdaptiveParameterSelector
 from src.tda.thresholds import auto_min_persistence
 from src.analysis.comprehensive_analyzer import ComprehensiveAnalyzer
+from src.tda.distances import compute_all_distances
+from src.tda.edt import edt_diagrams, compare_filtrations
+
 
 ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 
@@ -69,6 +72,14 @@ EXPECTED_BETTI = {
     'synthetic_two_circles': {'betti_0': 2, 'betti_1': 0},
     'synthetic_figure_eight': {'betti_0': 1, 'betti_1': 2}
 }
+# FILTRATION CONFIGURATION
+USE_EDT_FILTRATION = False  # Set to True to use EDT instead of intensity
+COMPARE_FILTRATIONS = False  # Set to True to compare both methods
+
+# REPRODUCIBILITY CONFIGURATION
+RANDOM_SEED = 42
+
+
 
 
 class TDAExperimentPipeline:
@@ -97,6 +108,17 @@ class TDAExperimentPipeline:
         self.three_stage_comparisons = []  # Clean → Noisy → Denoised comparisons
         self.verification_results = []  # Verification for synthetic images
         self.is_synthetic_dataset = any('synthetic' in dataset.lower() for dataset in datasets_to_run)
+
+        # ADDED: Set random seed for reproducibility
+        if RANDOM_SEED is not None:
+            np.random.seed(RANDOM_SEED)
+            import random
+            random.seed(RANDOM_SEED)
+            self.logger.info(f"🎲 Random seed set to: {RANDOM_SEED}")
+        else:
+            self.logger.info("🎲 Using random seed (non-reproducible)")
+
+
 
     # ADDED: Verification system for synthetic images
     def verify_betti_numbers(self, image_name: str, computed_betti: dict) -> dict:
@@ -209,6 +231,15 @@ class TDAExperimentPipeline:
 
             'timestamp': pd.Timestamp.now().isoformat()
         }
+        # ADDED: Compute diagram distances
+        diagram_distances = compute_all_distances(
+            clean_results['persistence_dict'],
+            noisy_results['persistence_dict'],
+            denoised_results['persistence_dict']
+        )
+
+        # Add distances to comparison metrics
+        comparison.update(diagram_distances)
 
         self.three_stage_comparisons.append(comparison)
 
@@ -229,7 +260,22 @@ class TDAExperimentPipeline:
         img_float = image.astype(np.float32)
         params = self.param_selector.select_optimal_parameters(image)
 
-        persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
+        # FIXED: Use threshold appropriately for each filtration type
+        if USE_EDT_FILTRATION:
+            # For EDT: threshold is used for binarization
+            persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
+            filtration_type = "edt"
+        else:
+            # For intensity: use threshold for preprocessing when meaningful
+            if params['threshold'] > 0 and params['threshold'] < 1:
+                # Apply threshold as preprocessing step
+                img_processed = np.where(img_float >= params['threshold'], img_float, 0)
+                persistence_dict = cubical_diagrams(img_processed, superlevel=params['superlevel'])
+                filtration_type = "intensity_thresholded"
+            else:
+                # Use raw intensity values (threshold too extreme)
+                persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
+                filtration_type = "intensity_raw"
 
         betti_0 = len(persistence_dict.get("H0", []))
         betti_1 = len(persistence_dict.get("H1", []))
@@ -241,7 +287,11 @@ class TDAExperimentPipeline:
             'betti_1': betti_1,
             'total_features': betti_0 + betti_1,
             'superlevel': params['superlevel'],
-            'threshold': params['threshold']
+            'threshold': params['threshold'],
+            'threshold_used': 'edt' if USE_EDT_FILTRATION else ('yes' if 0 < params['threshold'] < 1 else 'no'),
+            # ADDED
+            'filtration_type': filtration_type,
+            'persistence_dict': persistence_dict
         }
 
     def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: str, variant: str,
@@ -663,6 +713,8 @@ class TDAExperimentPipeline:
 
         except Exception as e:
             self.logger.error(f"Failed to generate visualization: {e}")
+
+
 
     def finalize_results(self):
         """Generate comprehensive final reports with verification results"""
