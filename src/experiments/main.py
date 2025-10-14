@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Enhanced TDA Pipeline with Dataset Selection and Detailed Analysis
 """
@@ -26,9 +27,9 @@ from src.analysis.comprehensive_analyzer import ComprehensiveAnalyzer
 ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 
 DATASETS_TO_RUN = [
-    "MOUSEBIRN",  # 8 images - good for testing
-    # "synthetic_data",   # 18 images
-    # "defungi/H1",          # Will process H1, H2, H3, H5, H6 automatically
+    # "MOUSEBIRN",  # 8 images - good for testing
+     "synthetic_data",   # 18 images
+    # "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     # "nucmm",            # Will process Mouse, Zebrafish subfolders
 ]
 
@@ -64,7 +65,6 @@ class TDAExperimentPipeline:
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(parents=True, exist_ok=True)
 
-        # ORIGINAL WORKING LOGGER INITIALIZATION
         self.logger = TDALogger(name="TDA_Pipeline", log_dir=self.results_dir / "logs", level="INFO")
         self.loader = EnhancedDataLoader(logger=self.logger)
         self.visualizer = TDAVisualizer(output_dir=self.results_dir / "plots", logger=self.logger)
@@ -77,100 +77,6 @@ class TDAExperimentPipeline:
         self.param_selector = AdaptiveParameterSelector(logger=self.logger)
         self.comprehensive_analyzer = ComprehensiveAnalyzer(logger=self.logger)
         self.last_params = {}  # Store params for step-by-step visualization
-
-    def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: str, variant: str,
-                                 subfolder_name: str) -> dict:
-        """Enhanced analysis with comprehensive logging and metrics - FIXED"""
-
-        # Convert image to proper format
-        img_float = image.astype(np.float32)
-        mp = auto_min_persistence(img_float)
-
-        # AUTO-SELECT PARAMETERS with detailed logging
-        params = self.param_selector.select_optimal_parameters(image)
-        self.last_params = params  # Store for step-by-step visualization
-
-        self.logger.info(f"      🎯 Parameters selected:")
-        self.logger.info(f"         Threshold: {params['threshold']:.6f}")
-        self.logger.info(f"         Superlevel: {params['superlevel']}")
-        self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
-
-        # COMPUTE PERSISTENCE DIAGRAMS - FIXED: Remove threshold parameter
-        persistence_dict = cubical_diagrams(
-            img_float,
-            superlevel=params['superlevel']
-        )
-
-        # CALCULATE BETTI NUMBERS - FIXED: Use dictionary format
-        betti_0 = len(persistence_dict.get("H0", []))
-        betti_1 = len(persistence_dict.get("H1", []))
-        total_features = betti_0 + betti_1
-
-        self.logger.info(f"      📊 TDA Results:")
-        self.logger.info(f"         Total features: {total_features}")
-        self.logger.info(f"         Betti 0 (components): {betti_0}")
-        self.logger.info(f"         Betti 1 (holes): {betti_1}")
-
-        # STORE METRICS
-        metrics = {
-            'image_name': image_name,
-            'subfolder': subfolder_name,
-            'stage': stage,
-            'variant': variant,
-            'threshold': params['threshold'],
-            'superlevel': params['superlevel'],
-            'confidence': params.get('confidence', 0.0),
-            'total_features': total_features,
-            'betti_0': betti_0,
-            'betti_1': betti_1,
-            'min_persistence': mp,
-            'timestamp': pd.Timestamp.now().isoformat()
-        }
-        self.all_metrics.append(metrics)
-
-        return persistence_dict
-
-    def _process_and_save_to_folder(self, image: np.ndarray, variant_name: str,
-                                    save_dir: Path, subfolder_name: str, variant_type: str):
-        """Process image and save all results to a single folder - FIXED"""
-
-        # Run TDA analysis
-        persistence_dict = self.analyze_and_log_enhanced(image, variant_name, "baseline", variant_type, subfolder_name)
-
-        # FIXED: Convert dictionary format to list format for visualizer
-        baseline_diags = []
-        betti_numbers = {"betti_0": 0, "betti_1": 0}
-
-        if isinstance(persistence_dict, dict):
-            # Convert from {"H0": [...], "H1": [...]} to [(dim, (birth, death)), ...]
-            for dim in [0, 1]:
-                if f"H{dim}" in persistence_dict:
-                    for interval in persistence_dict[f"H{dim}"]:
-                        baseline_diags.append((dim, interval))
-                    betti_numbers[f"betti_{dim}"] = len(persistence_dict[f"H{dim}"])
-
-        # Create visualizers that save to the same directory
-        diagram_viz = TDAVisualizer(output_dir=save_dir, logger=self.logger)
-        barcode_viz = TDAVisualizer(output_dir=save_dir, logger=self.logger)
-
-        # Save plots with descriptive names
-        diagram_viz.plot_persistence_diagram(baseline_diags, f"{subfolder_name}: {variant_name}",
-                                             f"{variant_name}_ph_diagram")
-        barcode_viz.plot_persistence_barcode(baseline_diags, f"{subfolder_name}: {variant_name}",
-                                             f"{variant_name}_ph_barcode")
-
-        # FIXED: Save step-by-step with correct parameters
-        try:
-            self.comprehensive_analyzer.analyze_image_comprehensive(
-                image,  # image
-                self.last_params,  # params
-                variant_name,  # filename
-                save_dir  # output_dir
-            )
-        except Exception as e:
-            self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
-
-        self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/")
 
     @log_method_call
     def run(self):
@@ -187,7 +93,7 @@ class TDAExperimentPipeline:
                 self.logger.info(f"🎯 Running SELECTED datasets mode")
                 self.logger.info(f"📊 Processing {len(datasets_to_process)} selected datasets")
 
-            experiment_id = self.logger.start_experiment(
+            self.logger.start_experiment(
                 experiment_name=f"TDA Analysis: {'ALL' if RUN_ALL_DATASETS else 'SELECTED'} Datasets",
                 parameters={
                     "mode": "ALL" if RUN_ALL_DATASETS else "SELECTED",
@@ -200,143 +106,292 @@ class TDAExperimentPipeline:
 
             self.logger.info(f"🚀 Starting comprehensive analysis of {len(datasets_to_process)} datasets")
 
-            for i, dataset_name in enumerate(datasets_to_process, 1):
-                self.logger.info(f"📊 [{i}/{len(datasets_to_process)}] Processing dataset: {dataset_name}")
+            # Process each selected dataset
+            for i, dataset_name in enumerate(datasets_to_process):
+                self.logger.info(f"📁 [{i + 1}/{len(datasets_to_process)}] Processing dataset: {dataset_name}")
                 self.process_dataset(dataset_name)
 
             self.finalize_results()
-            self.logger.end_experiment(experiment_id, "completed")
+            self.logger.end_experiment(status="completed")
 
         except Exception as e:
-            self.logger.error(f"Pipeline failed: {e}")
-            raise
+            self.logger.error(f"Pipeline execution failed: {e}", exc_info=True)
+            self.logger.end_experiment(status="failed")
+            self.finalize_results()
 
     def discover_all_datasets(self):
-        """Discover all available datasets in the OneDrive path."""
-        base_path = Path(self.onedrive_path)
-        if not base_path.exists():
-            self.logger.error(f"OneDrive path does not exist: {base_path}")
+        """Discover all available datasets in the OneDrive folder"""
+        if not os.path.exists(self.onedrive_path):
+            self.logger.error(f"OneDrive path not found: {self.onedrive_path}")
             return []
 
-        datasets = []
-        for item in base_path.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
-                datasets.append(item.name)
+        all_datasets = []
+        extensions = ['*.png', '*.jpg', '*.jpeg', '*.tiff', '*.tif', '*.h5', '*.hdf5', '*.npy']
 
-        self.logger.info(f"🔍 Discovered datasets: {datasets}")
-        return datasets
+        for item in os.listdir(self.onedrive_path):
+            item_path = os.path.join(self.onedrive_path, item)
+            if os.path.isdir(item_path):
+                has_images = False
+                for ext in extensions:
+                    if glob.glob(os.path.join(item_path, '**', ext), recursive=True):
+                        has_images = True
+                        break
+
+                if has_images:
+                    all_datasets.append(item)
+
+        return all_datasets
+
+    def discover_dataset_structure(self, dataset_name: str):
+        """Discover dataset structure and return all image-containing folders"""
+        dataset_path = os.path.join(self.onedrive_path, dataset_name)
+
+        if not os.path.exists(dataset_path):
+            return []
+
+        subfolders_with_images = []
+        extensions = ['*.png', '*.jpg', '*.jpeg', '*.tiff', '*.tif']
+
+        for root, dirs, files in os.walk(dataset_path):
+            images = []
+            for ext in extensions:
+                images.extend(glob.glob(os.path.join(root, ext)))
+
+            if images:
+                relative_path = os.path.relpath(root, self.onedrive_path)
+                subfolders_with_images.append({
+                    'name': relative_path,
+                    'path': root,
+                    'images': images,
+                    'image_count': len(images)
+                })
+
+        return subfolders_with_images
 
     def process_dataset(self, dataset_name: str):
-        """Process a single dataset with comprehensive analysis."""
+        """Process dataset with automatic subfolder detection"""
+        self.logger.info(f"📁 Analyzing dataset structure: {dataset_name}")
 
-        self.logger.info(f"📊 Processing dataset: {dataset_name}")
+        # Discover dataset structure
+        subfolders = self.discover_dataset_structure(dataset_name)
 
-        # Get dataset path
-        dataset_path = Path(self.onedrive_path) / dataset_name
-
-        if not dataset_path.exists():
-            self.logger.error(f"Dataset path not found: {dataset_path}")
+        if not subfolders:
+            self.logger.error(f"No images found in dataset: {dataset_name}")
             return
 
-        # Load images
-        images_data = self.loader.load_dataset_images(dataset_path, dataset_name)
+        self.logger.info(f"📊 Dataset structure for {dataset_name}:")
+        for subfolder in subfolders:
+            self.logger.info(f"   📂 {subfolder['name']}: {subfolder['image_count']} images")
 
-        if not images_data:
-            self.logger.warning(f"No images found in {dataset_name}")
-            return
+        total_images = sum(sf['image_count'] for sf in subfolders)
+        self.logger.info(f"📈 Total images to process: {total_images}")
+
+        # Process each subfolder
+        for subfolder in subfolders:
+            self.logger.info(f"🔍 Processing subfolder: {subfolder['name']}")
+            self.process_subfolder(subfolder, dataset_name)
+
+    def process_subfolder(self, subfolder_info: dict, dataset_name: str):
+        """Process all images in a subfolder"""
+        subfolder_name = subfolder_info['name']
+        images = subfolder_info['images']
 
         # Process each image
-        for i, (subfolder_name, image_name, image_path, image) in enumerate(images_data, 1):
-            self.logger.info(f"      [{i}/{len(images_data)}] Processing: {image_name}")
-
+        for i, image_path in enumerate(images):
             try:
-                # Create organized results directory
-                organized_dir = self.results_dir / "organized_results" / dataset_name / subfolder_name / image_name
+                image_name = Path(image_path).stem
+                self.logger.info(f"   🖼️  [{i + 1}/{len(images)}] Processing: {image_name}")
 
-                # Process baseline (clean image)
-                baseline_dir = organized_dir / "baseline"
-                baseline_dir.mkdir(parents=True, exist_ok=True)
+                # Create unique directory for each image
+                image_output_dir = self.results_dir / "organized_results" / dataset_name / subfolder_name.replace(
+                    os.sep, "_") / image_name
+                image_output_dir.mkdir(parents=True, exist_ok=True)
 
-                self.logger.info(f"        Processing {image_name}")
-                self.logger.info(f"          Processing baseline (clean) for {image_name}")
+                # Load image
+                image, metadata = self.loader.load_image(image_path)
 
-                self._process_and_save_to_folder(image, f"{image_name}_clean", baseline_dir, subfolder_name, "baseline")
+                # Create metadata object if needed
+                class SimpleMetadata:
+                    def __init__(self, filename):
+                        self.filename = filename
 
-                # Process noised variants if enabled
-                if RUN_NOISE_EXPERIMENTS:
-                    self.logger.info(f"          Processing noised variants for {image_name}")
+                if not hasattr(metadata, "filename"):
+                    metadata = SimpleMetadata(image_path)
 
-                    noised_dir = organized_dir / "noised"
-                    noised_dir.mkdir(parents=True, exist_ok=True)
-
-                    for noise_config in NOISE_EXPERIMENTS:
-                        noise_type = noise_config["type"]
-                        noise_param = noise_config["param"]
-                        noise_name = noise_config["name"]
-
-                        # Generate noisy image
-                        if noise_type == "gaussian":
-                            noisy_image = self.noise_generator.add_gaussian_noise(
-                                (image * 255).astype(np.uint8), sigma=noise_param * 255
-                            )
-                        elif noise_type == "salt_pepper":
-                            noisy_image = self.noise_generator.add_salt_pepper_noise(
-                                (image * 255).astype(np.uint8), amount=noise_param
-                            )
-
-                        noisy_image_float = noisy_image.astype(np.float32) / 255.0
-
-                        variant_name = f"{image_name}_{noise_name}"
-                        self._process_and_save_to_folder(noisy_image_float, variant_name, noised_dir, subfolder_name,
-                                                         "noised")
-
-                # Process denoised variants if enabled
-                if RUN_DENOISING_EXPERIMENTS:
-                    self.logger.info(f"          Processing denoised variants for {image_name}")
-
-                    denoised_dir = organized_dir / "denoised"
-                    denoised_dir.mkdir(parents=True, exist_ok=True)
-
-                    # Apply denoising to each noised variant
-                    for noise_config in NOISE_EXPERIMENTS:
-                        noise_type = noise_config["type"]
-                        noise_param = noise_config["param"]
-                        noise_name = noise_config["name"]
-
-                        # Generate the same noisy image
-                        if noise_type == "gaussian":
-                            noisy_image = self.noise_generator.add_gaussian_noise(
-                                (image * 255).astype(np.uint8), sigma=noise_param * 255
-                            )
-                        elif noise_type == "salt_pepper":
-                            noisy_image = self.noise_generator.add_salt_pepper_noise(
-                                (image * 255).astype(np.uint8), amount=noise_param
-                            )
-
-                        # Apply each denoising method
-                        for denoise_config in DENOISING_METHODS:
-                            method_name = denoise_config["method"]
-
-                            # Apply denoising
-                            if method_name == "median_filter":
-                                denoised_image = self.denoising_strategies.median_filter(noisy_image, kernel_size=5)
-                            elif method_name == "bilateral_filter":
-                                denoised_image = self.denoising_strategies.bilateral_filter(noisy_image, d=9,
-                                                                                            sigma_color=75,
-                                                                                            sigma_space=75)
-                            elif method_name == "non_local_means":
-                                denoised_image = self.denoising_strategies.non_local_means_denoising(noisy_image, h=10,
-                                                                                                     patch_size=7)
-
-                            denoised_image_float = denoised_image.astype(np.float32) / 255.0
-
-                            variant_name = f"{image_name}_{noise_name}_{method_name}"
-                            self._process_and_save_to_folder(denoised_image_float, variant_name, denoised_dir,
-                                                             subfolder_name, "denoised")
+                # Process with your desired structure
+                self.process_single_image_enhanced(image, metadata, image_output_dir, subfolder_name)
 
             except Exception as e:
-                self.logger.error(f"    Failed to process {image_name}: {e}")
+                self.logger.error(f"   ❌ Failed to process {Path(image_path).name}: {e}")
                 continue
+
+    def process_single_image_enhanced(self, image: np.ndarray, metadata, output_dir: Path, subfolder_name: str):
+        """Process image with baseline → noised → denoised structure"""
+
+        image_name = Path(metadata.filename).stem
+        self.logger.info(f"      📊 Processing {image_name}")
+
+        # Create the three main directories
+        baseline_dir = output_dir / "baseline"
+        noised_dir = output_dir / "noised"
+        denoised_dir = output_dir / "denoised"
+
+        for dir_path in [baseline_dir, noised_dir, denoised_dir]:
+            dir_path.mkdir(parents=True, exist_ok=True)
+
+        # === BASELINE (CLEAN) ===
+        self.logger.info(f"        🧹 Processing baseline (clean) for {image_name}")
+        self._process_and_save_to_folder(
+            image, f"{image_name}_clean", baseline_dir, subfolder_name, "baseline"
+        )
+
+        # === NOISED VARIANTS ===
+        if RUN_NOISE_EXPERIMENTS:
+            self.logger.info(f"        🔊 Processing noised variants for {image_name}")
+
+            # Convert to uint8 for noise generation
+            image_uint8 = (image * 255).astype(np.uint8) if image.max() <= 1.0 else image.astype(np.uint8)
+
+            # Store noisy images for denoising stage
+            noisy_images_store = {}
+
+            for noise_exp in NOISE_EXPERIMENTS:
+                try:
+                    # Generate noise using your modules
+                    if noise_exp["type"] == "gaussian":
+                        noisy_dict = self.noise_generator.add_gaussian_noise(image_uint8, [noise_exp["param"]])
+                    elif noise_exp["type"] == "salt_pepper":
+                        noisy_dict = self.noise_generator.add_salt_pepper_noise(image_uint8, [noise_exp["param"]])
+                    else:
+                        self.logger.warning(f"Unknown noise type: {noise_exp['type']}")
+                        continue
+
+                    noisy_uint8 = list(noisy_dict.values())[0]
+                    noisy_float = noisy_uint8.astype(np.float32) / 255.0
+
+                    # Store for denoising
+                    noisy_images_store[noise_exp["name"]] = {
+                        "float": noisy_float,
+                        "uint8": noisy_uint8
+                    }
+
+                    # Process and save to noised folder
+                    variant_name = f"{image_name}_{noise_exp['name']}"
+                    self._process_and_save_to_folder(
+                        noisy_float, variant_name, noised_dir, subfolder_name, f"noised_{noise_exp['name']}"
+                    )
+
+                except Exception as e:
+                    self.logger.error(f"Failed to generate {noise_exp['type']} noise: {e}")
+
+            # === DENOISED VARIANTS ===
+            if RUN_DENOISING_EXPERIMENTS:
+                self.logger.info(f"        🧹 Processing denoised variants for {image_name}")
+
+                for noise_name, noisy_data in noisy_images_store.items():
+                    for denoising in DENOISING_METHODS:
+                        try:
+                            # Apply denoising using your modules
+                            denoising_func = getattr(self.denoising_strategies, f"apply_{denoising['method']}")
+                            denoised_uint8 = denoising_func(noisy_data["uint8"])
+                            denoised_float = denoised_uint8.astype(np.float32) / 255.0
+
+                            # Process and save to denoised folder
+                            denoised_name = f"{image_name}_{noise_name}_{denoising['name']}"
+                            self._process_and_save_to_folder(
+                                denoised_float, denoised_name, denoised_dir,
+                                subfolder_name, f"denoised_{noise_name}_{denoising['name']}"
+                            )
+
+                        except Exception as e:
+                            self.logger.error(f"Failed {denoising['method']} on {noise_name}: {e}")
+
+    def _process_and_save_to_folder(self, image: np.ndarray, variant_name: str,
+                                    save_dir: Path, subfolder_name: str, variant_type: str):
+        """Process image and save all results to a single folder"""
+
+        # Run TDA analysis
+        analysis_results = self.analyze_and_log_enhanced(image, variant_name, "baseline", variant_type, subfolder_name)
+
+        # analysis_results is the persistence dict from cubical_diagrams
+        persistence_dict = analysis_results
+        # Convert to list format for visualizer
+        baseline_diags = []
+        for dim in [0, 1]:
+            if f"H{dim}" in persistence_dict:
+                for interval in persistence_dict[f"H{dim}"]:
+                    baseline_diags.append((dim, interval))
+
+        # Create visualizers that save to the same directory
+        diagram_viz = TDAVisualizer(save_dir, color_scheme="professional", logger=self.logger)
+        barcode_viz = TDAVisualizer(save_dir, color_scheme="professional", logger=self.logger)
+
+        # Save plots with descriptive names
+        diagram_viz.plot_persistence_diagram(baseline_diags, f"{subfolder_name}: {variant_name}",
+                                             f"{variant_name}_ph_diagram")
+        barcode_viz.plot_persistence_barcode(baseline_diags, f"{subfolder_name}: {variant_name}",
+                                             f"{variant_name}_ph_barcode")
+
+        # Save step-by-step
+        try:
+            self.comprehensive_analyzer.analyze_image_comprehensive(
+                image, self.last_params, baseline_diags, variant_name, save_dir
+            )
+        except Exception as e:
+            self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
+
+        self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/")
+
+    def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: str, variant: str,
+                                 subfolder_name: str) -> list:
+        """Enhanced analysis with comprehensive logging and metrics"""
+
+        # Convert image to proper format
+        img_float = image.astype(np.float32)
+        mp = auto_min_persistence(img_float)
+
+        # AUTO-SELECT PARAMETERS with detailed logging
+        params = self.param_selector.select_optimal_parameters(image)
+        self.last_params = params  # Store for step-by-step visualization
+
+        self.logger.info(f"      🎯 Parameters selected:")
+        self.logger.info(f"         Threshold: {params['threshold']:.6f}")
+        self.logger.info(f"         Superlevel: {params['superlevel']}")
+        self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
+
+        # COMPUTE PERSISTENCE DIAGRAMS
+        persistence_dict = cubical_diagrams(
+            img_float,
+            superlevel=params['superlevel']
+        )
+
+        # CALCULATE BETTI NUMBERS
+        betti_0 = len(persistence_dict.get("H0", []))
+        betti_1 = len(persistence_dict.get("H1", []))
+
+        self.logger.info(f"      📊 TDA Results:")
+        self.logger.info(f"         Total features: {len(persistence_dict)}")
+        self.logger.info(f"         Betti 0 (components): {betti_0}")
+        self.logger.info(f"         Betti 1 (holes): {betti_1}")
+
+        # STORE METRICS
+        metrics = {
+            'image_name': image_name,
+            'subfolder': subfolder_name,
+            'stage': stage,
+            'variant': variant,
+            'threshold': params['threshold'],
+            'superlevel': params['superlevel'],
+            'confidence': params.get('confidence', 0.0),
+            'total_features': len(persistence_dict),
+            'betti_0': betti_0,
+            'betti_1': betti_1,
+            'min_persistence': mp,
+            'timestamp': pd.Timestamp.now().isoformat()
+        }
+        self.all_metrics.append(metrics)
+
+        return persistence_dict
 
     def finalize_results(self):
         """Generate comprehensive final reports"""
@@ -346,15 +401,32 @@ class TDAExperimentPipeline:
 
         # Create comprehensive CSV report
         df = pd.DataFrame(self.all_metrics)
-        csv_path = self.results_dir / "full_experiment_metrics.csv"
+        csv_path = self.results_dir / "comprehensive_experiment_metrics.csv"
         df.to_csv(csv_path, index=False)
-        self.logger.info(f"📊 Saved comprehensive metrics to: {csv_path}")
+        self.logger.info(f"📊 Comprehensive metrics saved to: {csv_path}")
 
-        # Log summary statistics
-        self.logger.info("📈 EXPERIMENT SUMMARY:")
-        self.logger.info(f"   Total images processed: {len(df)}")
-        self.logger.info(f"   Average Betti 0: {df['betti_0'].mean():.2f}")
-        self.logger.info(f"   Average Betti 1: {df['betti_1'].mean():.2f}")
+        # Generate summary statistics
+        summary_stats = {
+            'total_images_processed': len(df),
+            'unique_datasets': df['subfolder'].nunique(),
+            'avg_betti_0': df['betti_0'].mean(),
+            'avg_betti_1': df['betti_1'].mean(),
+            'avg_confidence': df['confidence'].mean(),
+            'superlevel_usage': (df['superlevel'] == True).sum() / len(df) * 100
+        }
+
+        summary_path = self.results_dir / "analysis_summary.json"
+        import json
+        with open(summary_path, 'w') as f:
+            json.dump(summary_stats, f, indent=2)
+
+        self.logger.info(f"📋 Final comprehensive summary saved to: {summary_path}")
+        self.logger.info(f"🎉 ANALYSIS COMPLETE!")
+        self.logger.info(f"   📊 Processed {summary_stats['total_images_processed']} images")
+        self.logger.info(f"   📁 Across {summary_stats['unique_datasets']} datasets")
+        self.logger.info(f"   📈 Average Betti 0: {summary_stats['avg_betti_0']:.1f}")
+        self.logger.info(f"   📈 Average Betti 1: {summary_stats['avg_betti_1']:.1f}")
+        self.logger.info(f"   🎯 Average Confidence: {summary_stats['avg_confidence']:.3f}")
 
 
 if __name__ == "__main__":

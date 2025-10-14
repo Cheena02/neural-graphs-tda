@@ -28,3 +28,38 @@ def cubical_diagrams(img01: np.ndarray, superlevel: bool = False, coeff: int = 2
     D1 = cc.persistence_intervals_in_dimension(1)
     
     return {"H0": D0, "H1": D1}
+
+def edt_diagrams(img01: np.ndarray,
+                 bin_thresh: float | None = None,
+                 invert: bool = False,
+                 coeff: int = 2):
+    """
+    Euclidean Distance Transform filtration:
+      1) binarize grayscale image,
+      2) distance_transform_edt on foreground (or background if invert=True),
+      3) run cubical PH on the distance field.
+    """
+    import numpy as np
+    from scipy.ndimage import distance_transform_edt
+
+    x = img01
+    if invert:
+        x = 1.0 - x
+
+    if bin_thresh is None:
+        # default Otsu in [0,1]
+        try:
+            from skimage.filters import threshold_otsu
+            bin_thresh = float(threshold_otsu(x))
+        except Exception:
+            bin_thresh = 0.5
+
+    mask = (x >= bin_thresh).astype(np.uint8)
+    dist = distance_transform_edt(mask).astype(np.float64)
+    flat = dist.ravel(order="C")
+    cc = gudhi.CubicalComplex(dimensions=list(dist.shape), top_dimensional_cells=flat)
+    cc.persistence(homology_coeff_field=coeff, min_persistence=0.0)
+    D0 = cc.persistence_intervals_in_dimension(0)
+    D1 = cc.persistence_intervals_in_dimension(1)
+    return {"H0": D0, "H1": D1}
+
