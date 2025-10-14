@@ -27,7 +27,6 @@ data/
 my_results/
 outputs/
 checkpoints/
-experiments/
 runs/
 logs/
 
