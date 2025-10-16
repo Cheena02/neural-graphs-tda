@@ -2,7 +2,7 @@
 """
 Comprehensive TDA analysis orchestrator
 """
-from .step_by_step_visualizer import StepByStepVisualizer
+from .step_by_step_visualizerold import StepByStepVisualizer
 from .summary_generator import SummaryGenerator
 
 class ComprehensiveAnalyzer:
@@ -11,12 +11,13 @@ class ComprehensiveAnalyzer:
         self.step_visualizer = StepByStepVisualizer(logger)
         self.summary_generator = SummaryGenerator(logger)
     
-    def analyze_image_comprehensive(self, image, params, filename, output_dir):
+    def analyze_image_comprehensive(self, image, params,persistence_dict, filename, output_dir):
         """Complete analysis with all visualizations"""
         # Step-by-step visualization
-        self.step_visualizer.create_step_by_step_visualization(
-            image, params, filename, output_dir
-        )
+        self.step_visualizer.create_step_by_step_visualization(image, params,persistence_dict, filename, output_dir)
+        # self.step_visualizer.create_step_by_step_visualization(
+        #     image, params, persistence_dict, filename, output_dir
+        # )
         
         # Return analysis results
         return {

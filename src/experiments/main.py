@@ -15,7 +15,7 @@ import glob
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.resolve()))
 
 from src.data_io.enhanced_loader import EnhancedDataLoader
-from src.tda.cubical import cubical_diagrams
+from src.tda.oldcubical import cubical_diagrams
 from src.noise.generation import NoiseGenerator
 from src.noise.mitigation import DenoisingStrategies
 from src.visualization.plotter import TDAVisualizer

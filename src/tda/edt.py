@@ -5,7 +5,9 @@ Alternative to intensity-based cubical filtration, especially useful for blob an
 
 import numpy as np
 from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import binary_opening, binary_closing
 from skimage.filters import threshold_otsu
+from .oldcubical import cubical_diagrams
 import gudhi
 
 
@@ -34,9 +36,16 @@ def edt_diagrams(img01: np.ndarray, bin_thresh: float = None, invert: bool = Fal
         # Binarize image
         mask = (x >= bin_thresh).astype(np.uint8)
 
+         # Clean up binary mask to remove noise
+        mask = binary_closing(mask, structure=np.ones((3, 3)))
+        mask = binary_opening(mask, structure=np.ones((3, 3)))
+
         # Compute Euclidean distance transform
         dist = distance_transform_edt(mask)
         vals = dist.astype(np.float64)
+        # Calculate adaptive minimum persistence (10% of max distance)
+        max_dist = vals.max()
+        min_pers = max_dist * 0.10
 
         # Create cubical complex from distance field
         cc = gudhi.CubicalComplex(
@@ -44,8 +53,8 @@ def edt_diagrams(img01: np.ndarray, bin_thresh: float = None, invert: bool = Fal
             top_dimensional_cells=vals.ravel(order="C")
         )
 
-        # Compute persistence
-        cc.persistence(homology_coeff_field=coeff, min_persistence=0.0)
+        # FIXED: Compute persistence with minimum threshold instead of 0.0
+        cc.persistence(homology_coeff_field=coeff, min_persistence=min_pers)
 
         return {
             "H0": cc.persistence_intervals_in_dimension(0),
@@ -54,12 +63,12 @@ def edt_diagrams(img01: np.ndarray, bin_thresh: float = None, invert: bool = Fal
 
     except Exception as e:
         print(f"Warning: EDT filtration failed: {e}")
-        return {"H0": [], "H1": []}
+        # FIXED: Return numpy arrays for consistency
+        return {"H0": np.array([]), "H1": np.array([])}
 
 
 def compare_filtrations(img01: np.ndarray, intensity_params: dict = None, edt_params: dict = None):
     """Compare intensity-based vs EDT-based filtrations on the same image."""
-    from .cubical import cubical_diagrams
 
     # Default parameters
     if intensity_params is None:
@@ -69,6 +78,8 @@ def compare_filtrations(img01: np.ndarray, intensity_params: dict = None, edt_pa
 
     # Compute both filtrations
     intensity_diag = cubical_diagrams(img01, **intensity_params)
+    if 'coeff' not in edt_params:
+        edt_params['coeff'] = intensity_params.get('coeff', 2)
     edt_diag = edt_diagrams(img01, **edt_params)
 
     # Compute basic metrics
@@ -82,3 +93,4 @@ def compare_filtrations(img01: np.ndarray, intensity_params: dict = None, edt_pa
     }
 
     return comparison
+
