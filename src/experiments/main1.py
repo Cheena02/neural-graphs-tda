@@ -10,7 +10,10 @@ import time
 import sys
 import os
 import glob
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
+
 import seaborn as sns
 
 # Add project root to the Python path
@@ -32,10 +35,11 @@ from src.tda.edt import edt_diagrams, compare_filtrations
 ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 
 DATASETS_TO_RUN = [
-     "MOUSEBIRN",  # 8 images - good for testing
-    #  "synthetic_data",  # 18 images
-    # "defungi",          # Will process H1, H2, H3, H5, H6 automatically
-    # "nucmm",            # Will process Mouse, Zebrafish subfolders
+      # "MOUSEBIRN",  # 8 images - good for testing
+    # "synthetic_data",  # 18 images
+    #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
+    #  "nucmm",            Will process Mouse, Zebrafish subfolders
+     'ReportImages'
 ]
 
 # CONFIGURATION
@@ -73,12 +77,21 @@ EXPECTED_BETTI = {
     'synthetic_figure_eight': {'betti_0': 1, 'betti_1': 2}
 }
 # FILTRATION CONFIGURATION
-USE_EDT_FILTRATION = False  # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = False  # Set to True to compare both methods
-
+USE_EDT_FILTRATION = True  # Set to True to use EDT instead of intensity
+COMPARE_FILTRATIONS = True
+COMPUTE_DISTANCES = False # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
+def _gauss_param_to_variance(p: float, is_uint8: bool = True) -> float:
+    """
+    If p < 1.0, interpret it as sigma fraction of dynamic range (0..1 or 0..255),
+    and convert to variance. Otherwise assume `p` is already a variance.
+    """
+    if p < 1.0:
+        sigma = p * (255.0 if is_uint8 else 1.0)
+        return float(sigma * sigma)
+    return float(p)
 
 
 
@@ -165,8 +178,10 @@ class TDAExperimentPipeline:
         # Stage 2: Add noise and analyze
         if noise_config["type"] == "gaussian":
             noisy_dict = self.noise_generator.add_gaussian_noise(
-                (clean_image * 255).astype(np.uint8), [noise_config["param"]]
+                (clean_image * 255).astype(np.uint8),
+                [_gauss_param_to_variance(noise_config["param"], is_uint8=True)]
             )
+
         elif noise_config["type"] == "salt_pepper":
             noisy_dict = self.noise_generator.add_salt_pepper_noise(
                 (clean_image * 255).astype(np.uint8), [noise_config["param"]]
@@ -231,15 +246,41 @@ class TDAExperimentPipeline:
 
             'timestamp': pd.Timestamp.now().isoformat()
         }
-        # ADDED: Compute diagram distances
-        diagram_distances = compute_all_distances(
-            clean_results['persistence_dict'],
-            noisy_results['persistence_dict'],
-            denoised_results['persistence_dict']
-        )
+        # BEFORE: self.three_stage_comparisons.append(comparison)
+        # ADD THIS:
+        if COMPUTE_DISTANCES:
+            self.logger.info(f"        Computing Wasserstein distances for {image_name}")
+        try:
+            diagram_distances = compute_all_distances(
+                clean_results['persistence_dict'],
+                noisy_results['persistence_dict'],
+                denoised_results['persistence_dict']
+                )
 
-        # Add distances to comparison metrics
-        comparison.update(diagram_distances)
+            # Log the distances for verification
+            self.logger.info(
+                f"        Distance H0 clean->noisy: {diagram_distances.get('wasserstein_clean_noisy_H0', 'N/A')}")
+            self.logger.info(
+                f"        Distance H1 clean->noisy: {diagram_distances.get('wasserstein_clean_noisy_H1', 'N/A')}")
+
+            # Add distances to comparison metrics
+            comparison.update(diagram_distances)
+
+        except Exception as e:
+            self.logger.error(f"        Failed to compute distances: {e}")
+            # Add default distance values
+            for dim in [0, 1]:
+                comparison[f'wasserstein_clean_noisy_H{dim}'] = 0.0
+                comparison[f'wasserstein_clean_denoised_H{dim}'] = 0.0
+                comparison[f'wasserstein_noisy_denoised_H{dim}'] = 0.0
+            else:
+                self.logger.info(f"        Skipping distance calculations (COMPUTE_DISTANCES=False)")
+                # Add placeholder values
+                for dim in [0, 1]:
+                    comparison[f'wasserstein_clean_noisy_H{dim}'] = 0.0
+                    comparison[f'wasserstein_clean_denoised_H{dim}'] = 0.0
+                    comparison[f'wasserstein_noisy_denoised_H{dim}'] = 0.0
+
 
         self.three_stage_comparisons.append(comparison)
 
@@ -260,11 +301,13 @@ class TDAExperimentPipeline:
         img_float = image.astype(np.float32)
         params = self.param_selector.select_optimal_parameters(image)
 
+        # ADD THIS LOGGING TO VERIFY CONFIGURATION
+        self.logger.info(f"        Using EDT filtration: {USE_EDT_FILTRATION}")
         # FIXED: Use threshold appropriately for each filtration type
         if USE_EDT_FILTRATION:
-            # For EDT: threshold is used for binarization
             persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
             filtration_type = "edt"
+            self.logger.info(f"        Applied EDT filtration with threshold: {params['threshold']}")
         else:
             # For intensity: use threshold for preprocessing when meaningful
             if params['threshold'] > 0 and params['threshold'] < 1:
@@ -311,11 +354,22 @@ class TDAExperimentPipeline:
         self.logger.info(f"         Superlevel: {params['superlevel']}")
         self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
 
-        # COMPUTE PERSISTENCE DIAGRAMS
-        persistence_dict = cubical_diagrams(
-            img_float,
-            superlevel=params['superlevel']
-        )
+        # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
+        self.logger.info(f"         Using EDT filtration: {USE_EDT_FILTRATION}")
+
+        if USE_EDT_FILTRATION:
+            persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
+            filtration_type = "edt"
+            self.logger.info(f"         Applied EDT filtration with threshold: {params['threshold']}")
+        else:
+            # For intensity: use threshold for preprocessing when meaningful
+            if params['threshold'] > 0 and params['threshold'] < 1:
+                img_processed = np.where(img_float >= params['threshold'], img_float, 0)
+                persistence_dict = cubical_diagrams(img_processed, superlevel=params['superlevel'])
+                filtration_type = "intensity_thresholded"
+            else:
+                persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
+                filtration_type = "intensity_raw"
 
         # CALCULATE BETTI NUMBERS
         betti_0 = len(persistence_dict.get("H0", []))
@@ -410,7 +464,9 @@ class TDAExperimentPipeline:
                     "datasets": datasets_to_process,
                     "path": self.onedrive_path,
                     "noise_experiments": RUN_NOISE_EXPERIMENTS,
-                    "denoising_experiments": RUN_DENOISING_EXPERIMENTS
+                    "denoising_experiments": RUN_DENOISING_EXPERIMENTS,
+                    "synthetic_dataset": self.is_synthetic_dataset,
+                    "random_seed": RANDOM_SEED  # ADDED
                 }
             )
 
@@ -567,21 +623,34 @@ class TDAExperimentPipeline:
         if RUN_NOISE_EXPERIMENTS:
             self.logger.info(f"        🔊 Processing noised variants for {image_name}")
 
+            # FIXED: Ensure consistent single-channel format for noise generation
+            if len(image.shape) == 3:
+                # Convert to grayscale if multi-channel
+                image_gray = np.mean(image, axis=2)
+            else:
+                image_gray = image
+
             # Convert to uint8 for noise generation
-            image_uint8 = (image * 255).astype(np.uint8) if image.max() <= 1.0 else image.astype(np.uint8)
+            image_uint8 = (image_gray * 255).astype(np.uint8) if image_gray.max() <= 1.0 else image_gray.astype(
+                np.uint8)
 
             # Store noisy images for denoising stage
             noisy_images_store = {}
 
             for noise_exp in NOISE_EXPERIMENTS:
                 try:
-                    # Generate noise using your modules
+                    # FIXED: Generate noise with proper shape handling
                     if noise_exp["type"] == "gaussian":
                         noisy_dict = self.noise_generator.add_gaussian_noise(image_uint8, [noise_exp["param"]])
                         noisy_image = list(noisy_dict.values())[0]
                     elif noise_exp["type"] == "salt_pepper":
                         noisy_dict = self.noise_generator.add_salt_pepper_noise(image_uint8, [noise_exp["param"]])
                         noisy_image = list(noisy_dict.values())[0]
+
+                    # Ensure output is 2D
+                    if len(noisy_image.shape) > 2:
+                        noisy_image = noisy_image[:, :, 0] if noisy_image.shape[2] == 1 else np.mean(noisy_image,
+                                                                                                     axis=2)
 
                     # Convert back to float
                     noisy_float = noisy_image.astype(np.float32) / 255.0
@@ -714,7 +783,128 @@ class TDAExperimentPipeline:
         except Exception as e:
             self.logger.error(f"Failed to generate visualization: {e}")
 
+    def _generate_analysis_summary_md(self, output_path):
+        """Generate human-readable analysis summary in Markdown format."""
 
+        if not self.three_stage_comparisons:
+            return
+
+        df = pd.DataFrame(self.three_stage_comparisons)
+
+        summary_content = f"""# TDA Pipeline Analysis Summary
+
+    ## Configuration
+    - **EDT Filtration**: {USE_EDT_FILTRATION}
+    - **Compare Filtrations**: {COMPARE_FILTRATIONS}
+    - **Random Seed**: {RANDOM_SEED}
+    - **Datasets Processed**: {', '.join(self.datasets_to_run)}
+
+    ## Results Overview
+    - **Total Images Analyzed**: {len(df['image_name'].unique())}
+    - **Total Comparisons**: {len(df)}
+    - **Average Noise Impact**: {df['noise_impact_total'].mean():.2f} features
+    - **Average Recovery Rate**: {df['relative_recovery'].mean():.2f}%
+
+    ## Noise Type Analysis
+    {df.groupby('noise_type')['noise_impact_total'].agg(['mean', 'std']).to_string()}
+
+    ## Denoising Method Effectiveness
+    {df.groupby('denoise_method')['relative_recovery'].agg(['mean', 'std']).to_string()}
+
+    ## Distance Analysis
+    - **Average Wasserstein H0 (Clean->Noisy)**: {df['wasserstein_clean_noisy_H0'].replace([np.inf, -np.inf], np.nan).mean():.4f}
+    - **Average Wasserstein H1 (Clean->Noisy)**: {df['wasserstein_clean_noisy_H1'].replace([np.inf, -np.inf], np.nan).mean():.4f}
+    """
+
+        with open(output_path, 'w') as f:
+            f.write(summary_content)
+
+    def _generate_method_comparison_matrix(self, output_path):
+        """Generate method comparison matrix CSV."""
+
+        if not self.three_stage_comparisons:
+            return
+
+        df = pd.DataFrame(self.three_stage_comparisons)
+
+        # Create comparison matrix
+        comparison_matrix = df.pivot_table(
+            values='relative_recovery',
+            index=['noise_type', 'noise_level'],
+            columns='denoise_method',
+            aggfunc='mean'
+        )
+
+        comparison_matrix.to_csv(output_path)
+
+    def _generate_enhanced_visualization_with_context(self):
+        """Generate visualization with proper dataset context and labels."""
+
+        # Modify your existing generate_comparative_visualization() method
+        # to include dataset information and configuration details
+
+        viz_path = self.results_dir / "plots" / "comprehensive_comparative_analysis_with_context.png"
+        viz_path.parent.mkdir(exist_ok=True)
+
+        # Add dataset and configuration info to the plot title
+        title = f"TDA Comparative Analysis: {', '.join(self.datasets_to_run)}\n"
+        title += f"EDT: {USE_EDT_FILTRATION}, Compare: {COMPARE_FILTRATIONS}, Seed: {RANDOM_SEED}"
+
+        # Use this title in your plotting function
+        # ... rest of visualization code with enhanced context
+
+    def perform_filtration_comparison_analysis(self, image: np.ndarray, image_name: str):
+        """Perform dedicated comparison between intensity and EDT filtrations."""
+
+        if not COMPARE_FILTRATIONS:
+            return
+
+        self.logger.info(f"      Performing filtration comparison for {image_name}")
+
+        img_float = image.astype(np.float32)
+        params = self.param_selector.select_optimal_parameters(image)
+
+        # Prepare parameter dictionaries
+        intensity_params = {
+            'superlevel': params['superlevel'],
+            'coeff': 2
+        }
+
+        edt_params = {
+            'bin_thresh': params['threshold'],
+            'invert': False,
+            'coeff': 2
+        }
+
+        # Run comparison using the actual method signature
+        comparison_results = compare_filtrations(
+            img_float,
+            intensity_params=intensity_params,
+            edt_params=edt_params
+        )
+
+        # Save comparison results
+        comparison_data = {
+            'image_name': image_name,
+            'intensity_betti_0': comparison_results['intensity_betti_0'],
+            'intensity_betti_1': comparison_results['intensity_betti_1'],
+            'edt_betti_0': comparison_results['edt_betti_0'],
+            'edt_betti_1': comparison_results['edt_betti_1'],
+            'method_difference_total': comparison_results.get('method_difference_total', 0),
+            'better_method': comparison_results.get('better_method', 'unknown'),
+            'threshold': params['threshold'],
+            'superlevel': params['superlevel']
+        }
+
+        # Store for later analysis
+        if not hasattr(self, 'filtration_comparisons'):
+            self.filtration_comparisons = []
+        self.filtration_comparisons.append(comparison_data)
+
+        self.logger.info(
+            f"        Intensity: β₀={comparison_results['intensity_betti_0']}, β₁={comparison_results['intensity_betti_1']}")
+        self.logger.info(f"        EDT: β₀={comparison_results['edt_betti_0']}, β₁={comparison_results['edt_betti_1']}")
+        self.logger.info(f"        Better method: {comparison_results.get('better_method', 'unknown')}")
 
     def finalize_results(self):
         """Generate comprehensive final reports with verification results"""
@@ -769,6 +959,32 @@ class TDAExperimentPipeline:
                         'total_features'].mean() - 1) * 100
                     self.logger.info(f"   Feature increase due to noise: {feature_increase:.1f}%")
 
+        # Generate verification results (even for real datasets)
+        self.logger.info("  Generating verification and summary reports...")
+
+        # Create comprehensive analysis summary
+        summary_md_path = self.results_dir / "comprehensive_analysis_summary.md"
+        self._generate_analysis_summary_md(summary_md_path)
+
+        # Create method comparison matrix
+        comparison_matrix_path = self.results_dir / "method_comparison_matrix.csv"
+        self._generate_method_comparison_matrix(comparison_matrix_path)
+
+        # Enhanced visualization with dataset context
+        self._generate_enhanced_visualization_with_context()
+
+        self.logger.info(f"  Generated comprehensive analysis summary: {summary_md_path}")
+        self.logger.info(f"  Generated method comparison matrix: {comparison_matrix_path}")
+
+        if hasattr(self, 'filtration_comparisons') and self.filtration_comparisons:
+            comparison_df = pd.DataFrame(self.filtration_comparisons)
+            comparison_csv = self.results_dir / "filtration_comparison_results.csv"
+            comparison_df.to_csv(comparison_csv, index=False)
+            self.logger.info(f"  Filtration comparison results saved to: {comparison_csv}")
+
+            # Log summary
+            better_method_counts = comparison_df['better_method'].value_counts()
+            self.logger.info(f"  Filtration method effectiveness: {better_method_counts.to_dict()}")
 
 if __name__ == "__main__":
     print("🚀 TDA Pipeline with Comprehensive Noise Analysis")
