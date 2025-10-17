@@ -59,9 +59,9 @@ NOISE_EXPERIMENTS = [
 ]
 
 DENOISING_METHODS = [
-    {"method": "median_filter", "name": "median_filter"},
-    {"method": "bilateral_filter", "name": "bilateral_filter"},
-    {"method": "non_local_means", "name": "non_local_means"},
+    {"method": "median_filter", "name": "median_filter", "window_size": 5},
+    {"method": "bilateral_filter", "name": "bilateral_filter", "sigma_color": 75, "sigma_spatial": 75},
+    {"method": "non_local_means", "name": "non_local_means", "h": 10},
 ]
 
 # ADDED: Expected Betti numbers for verification (synthetic images)
@@ -78,8 +78,8 @@ EXPECTED_BETTI = {
 }
 # FILTRATION CONFIGURATION
 USE_EDT_FILTRATION = False # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = True
-COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
+COMPARE_FILTRATIONS = False
+COMPUTE_DISTANCES = False # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
@@ -563,9 +563,8 @@ class TDAExperimentPipeline:
         subfolder_name = subfolder_info['name']
         images = subfolder_info['images']
 
-        # ADDED: Limit processing for comparative analysis (as supervisor suggested)
-        max_images = min(5, len(images))  # Process max 5 images per subfolder
-        selected_images = images[:max_images]
+
+        selected_images = images
 
         # Process each image
         for i, image_path in enumerate(selected_images):
@@ -884,7 +883,9 @@ class TDAExperimentPipeline:
         comparison_results = compare_filtrations(
             img_float,
             intensity_params=intensity_params,
-            edt_params=edt_params
+            edt_params=edt_params,
+            save_path = str(self.results_dir / "filtration_comparison_results.csv"),
+            image_name = image_name
         )
 
         # Save comparison results
@@ -1001,7 +1002,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir="TDA_Analysis_Results_Comparisons",
+        results_dir="TDA_Analysis_Results",
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )
