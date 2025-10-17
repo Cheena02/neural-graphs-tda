@@ -2,7 +2,7 @@
 """
 Comprehensive TDA analysis orchestrator
 """
-from .step_by_step_visualizerold import StepByStepVisualizer
+from .step_by_step_visualizer import StepByStepVisualizer
 from .summary_generator import SummaryGenerator
 
 class ComprehensiveAnalyzer:

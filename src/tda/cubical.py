@@ -3,6 +3,8 @@ TDA- Cubical_Complex Calculation
 Author:Cheena Yadav
 """""
 
+
+
 import numpy as np
 import gudhi
 from .thresholds import auto_min_persistence
@@ -25,7 +27,7 @@ def cubical_diagrams(img01: np.ndarray, superlevel: bool = False, coeff: int = 2
     # This estimates noise level using MAD and sets threshold at 3σ
     # Filters 99.7% of noise-induced features while preserving real structure
     min_pers = auto_min_persistence(img01)
-
+    
     # Compute persistence with adaptive minimum threshold
     cc.persistence(homology_coeff_field=coeff, min_persistence=min_pers)
 

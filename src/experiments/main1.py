@@ -20,7 +20,7 @@ import seaborn as sns
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.resolve()))
 
 from src.data_io.enhanced_loader import EnhancedDataLoader
-from src.tda.oldcubical import cubical_diagrams
+from src.tda.cubical import cubical_diagrams
 from src.noise.generation import NoiseGenerator
 from src.noise.mitigation import DenoisingStrategies
 from src.visualization.plotter import TDAVisualizer
@@ -39,15 +39,7 @@ DATASETS_TO_RUN = [
     # "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
-    #  'ReportImages',
-    'test_Mousebirn',
-    # "test_defungi",
-    # "test_Fluroscent_Green_61",
-    # "test_Fluroscent_Red_313",
-    # "test_Fluroscent_Yellow",
-    # "test_mouseslice_zebrafish"
-
-
+     'ReportImages'
 ]
 
 # CONFIGURATION
@@ -85,9 +77,9 @@ EXPECTED_BETTI = {
     'synthetic_figure_eight': {'betti_0': 1, 'betti_1': 2}
 }
 # FILTRATION CONFIGURATION
-USE_EDT_FILTRATION = False  # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = False
-COMPUTE_DISTANCES = False # Set to False to skip slow distance calculations
+USE_EDT_FILTRATION = False # Set to True to use EDT instead of intensity
+COMPARE_FILTRATIONS = True
+COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
@@ -304,28 +296,23 @@ class TDAExperimentPipeline:
     # ADDED: Single stage analysis helper
     def analyze_single_image_stage(self, image: np.ndarray, variant_name: str, stage: str) -> dict:
         """Analyze a single image stage and return Betti numbers."""
+
         img_float = image.astype(np.float32)
-
-        # Calculate adaptive min persistence
-        mp = auto_min_persistence(img_float)
-
-        # Get parameters (superlevel, threshold for EDT only)
         params = self.param_selector.select_optimal_parameters(image)
 
+        # ADD THIS LOGGING TO VERIFY CONFIGURATION
         self.logger.info(f"        Using EDT filtration: {USE_EDT_FILTRATION}")
-
+        # FIXED: Use threshold appropriately for each filtration type
         if USE_EDT_FILTRATION:
-            # EDT uses Otsu threshold for binary mask
             persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
             filtration_type = "edt"
+            self.logger.info(f"        Applied EDT filtration with threshold: {params['threshold']}")
         else:
-            # Intensity uses RAW image with adaptive min persistence
-            persistence_dict = cubical_diagrams(
-                img_float,
-                superlevel=params['superlevel'],
-                min_persistence=mp  # ← USE THE CALCULATED VALUE!
-            )
-            filtration_type = "intensity"
+            # FIXED: DO NOT pre-threshold for intensity filtration
+            # Let cubical complex analyze the full intensity landscape
+            persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
+            filtration_type = "intensity_raw"
+            self.logger.info(f"         Applied intensity filtration (superlevel={params['superlevel']})")
 
         betti_0 = len(persistence_dict.get("H0", []))
         betti_1 = len(persistence_dict.get("H1", []))
@@ -338,13 +325,13 @@ class TDAExperimentPipeline:
             'total_features': betti_0 + betti_1,
             'superlevel': params['superlevel'],
             'threshold': params['threshold'],
-            'min_persistence_used': mp,  # ← LOG THIS!
+            'threshold_used': 'edt' if USE_EDT_FILTRATION else ('yes' if 0 < params['threshold'] < 1 else 'no'),
+            # ADDED
             'filtration_type': filtration_type,
             'persistence_dict': persistence_dict
         }
 
-
-def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: str, variant: str,
+    def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: str, variant: str,
                                  subfolder_name: str) -> dict:
         """Enhanced analysis with comprehensive logging and metrics - FIXED"""
 
@@ -359,21 +346,27 @@ def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: st
         self.logger.info(f"      🎯 Parameters selected:")
         self.logger.info(f"         Threshold: {params['threshold']:.6f}")
         self.logger.info(f"         Superlevel: {params['superlevel']}")
-        self.logger.info(f"         Min Persistence: {mp:.6f} (adaptive)")
         self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
 
         # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
-        self.logger.info(f"         Using EDT filtration: {USE_EDT_FILTRATION}")
+        # Skip if we're doing comparison (comparison function handles both)
+        if COMPARE_FILTRATIONS:
+            # Just return empty dict, comparison will be done separately
+            self.logger.info(f"         Skipping individual filtration (comparison mode enabled)")
+            return {"H0": np.array([]), "H1": np.array([])}
 
+        # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
+        self.logger.info(f"         Using EDT filtration: {USE_EDT_FILTRATION}")
         if USE_EDT_FILTRATION:
             persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
             filtration_type = "edt"
             self.logger.info(f"         Applied EDT filtration with threshold: {params['threshold']}")
         else:
-             persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'],min_persistence=mp)
-             filtration_type = "intensity"
-             self.logger.info(f"         Applied intensity filtration with min_pers: {mp:.6f}")
-
+            # FIXED: DO NOT pre-threshold for intensity filtration
+            # Let cubical complex analyze the full intensity landscape
+            persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
+            filtration_type = "intensity_raw"
+            self.logger.info(f"         Applied intensity filtration (superlevel={params['superlevel']})")
 
         # CALCULATE BETTI NUMBERS
         betti_0 = len(persistence_dict.get("H0", []))
@@ -420,6 +413,12 @@ def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: st
         baseline_diags = []
         betti_numbers = {"betti_0": 0, "betti_1": 0}
 
+
+        # Perform filtration comparison if enabled
+        if COMPARE_FILTRATIONS:
+            self.logger.info(f"      🔄 Running filtration comparison for {variant_name}")
+            self.perform_filtration_comparison_analysis(image, variant_name)
+
         for dim in [0, 1]:
             if f"H{dim}" in persistence_dict:
                 for interval in persistence_dict[f"H{dim}"]:
@@ -440,7 +439,7 @@ def analyze_and_log_enhanced(self, image: np.ndarray, image_name: str, stage: st
         # FIXED: Save step-by-step - Now betti_numbers is defined
         try:
             self.comprehensive_analyzer.analyze_image_comprehensive(
-                image, self.last_params,persistence_dict,  variant_name, save_dir
+                image, self.last_params,persistence_dict, variant_name, save_dir
             )
         except Exception as e:
             self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
@@ -1002,7 +1001,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir="TDA_Analysis_Results",
+        results_dir="TDA_Analysis_Results_Comparisons",
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )

@@ -93,9 +93,8 @@ class StepByStepVisualizer:
 
             # Count components and holes at this level
             # (Simplified - just for visualization)
-            labeled, num = cv2.connectedComponents(mask.astype(np.uint8))
-            # FIXED: Ensure num is scalar
-            num = int(num) if isinstance(num, (np.integer, np.ndarray)) else num
+            # FIXED: cv2.connectedComponents returns (num_labels, labeled_image)
+            num, labeled = cv2.connectedComponents(mask.astype(np.uint8))
 
             # Create colored visualization
             colored = np.stack([img_norm] * 3, axis=-1)
@@ -210,9 +209,8 @@ class StepByStepVisualizer:
         for t in t_values:
             mask = filtration_values <= t
             if mask.sum() > 0:
-                labeled, num = cv2.connectedComponents(mask.astype(np.uint8))
-                # FIXED: Ensure num is scalar before using in max()
-                num = int(num) if isinstance(num, (np.integer, np.ndarray)) else num
+                # FIXED: cv2.connectedComponents returns (num_labels, labeled_image)
+                num, labeled = cv2.connectedComponents(mask.astype(np.uint8))
                 beta_0.append(num)
                 # Simplified hole count (just for visualization)
                 beta_1.append(max(0, num - 1))
@@ -313,3 +311,4 @@ class StepByStepVisualizer:
             self.logger.info(f"Step-by-step visualization saved to {output_path}")
 
         return output_path
+

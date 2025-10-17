@@ -7,7 +7,7 @@ import numpy as np
 from scipy.ndimage import distance_transform_edt
 from scipy.ndimage import binary_opening, binary_closing
 from skimage.filters import threshold_otsu
-from .oldcubical import cubical_diagrams
+from .cubical import cubical_diagrams
 import gudhi
 
 
