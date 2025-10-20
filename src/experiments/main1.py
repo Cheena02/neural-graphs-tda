@@ -36,14 +36,14 @@ ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving
 
 DATASETS_TO_RUN = [
       # "MOUSEBIRN",  # 8 images - good for testing
-    # "synthetic_data",  # 18 images
+     "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
      'ReportImages'
 ]
 
 # CONFIGURATION
-RUN_ALL_DATASETS = False  # Set to True to process everything
+RUN_ALL_DATASETS = False# Set to True to process everything
 EXCLUDE_DATASETS = [" "]
 
 # NOISE EXPERIMENT CONFIGURATION
@@ -78,8 +78,8 @@ EXPECTED_BETTI = {
 }
 # FILTRATION CONFIGURATION
 USE_EDT_FILTRATION = False # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = False
-COMPUTE_DISTANCES = False # Set to False to skip slow distance calculations
+COMPARE_FILTRATIONS = True
+COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
@@ -1002,7 +1002,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir="TDA_Analysis_Results",
+        results_dir="TDA_Analysis_Results_syntehtic_data",
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )
