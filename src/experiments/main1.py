@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Add project root to the Python path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.resolve()))
+PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data_io.enhanced_loader import EnhancedDataLoader
 from src.tda.cubical import cubical_diagrams
@@ -1002,7 +1003,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir="TDA_Analysis_Results_syntehtic_data",
+        results_dir=str(PROJECT_ROOT / "TDA_Analysis_Results_syntehtic_data"),
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )
