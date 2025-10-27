@@ -1,6 +1,21 @@
-#!/usr/bin/env python3
 """
-Comprehensive TDA analysis orchestrator
+Statistical Analysis and Metric Computation
+
+Provides comprehensive statistical analysis of TDA results including:
+- Wasserstein distance computation between persistence diagrams
+- Recovery ratio calculation for denoising effectiveness
+- Feature count analysis and Betti number comparison
+- Noise impact quantification
+
+Implements metrics for evaluating:
+1. Topological stability under noise perturbations
+2. Denoising method effectiveness
+3. Filtration method comparison
+4. Statistical significance testing
+
+Author: Cheena Yadav
+Date: October 2025
+Version: 1.0.0
 """
 from .step_by_step_visualizer import StepByStepVisualizer
 from .summary_generator import SummaryGenerator

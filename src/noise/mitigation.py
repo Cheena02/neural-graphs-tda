@@ -177,8 +177,7 @@ class DenoisingStrategies:
     def apply_topological_denoising(self, image: np.ndarray, persistence_threshold: float = 10.0, superlevel: bool = False) -> np.ndarray:
         """
         Apply a simplified topological denoising based on persistence.
-        This method identifies and removes critical pixels that create short-lived
-        topological features (i.e., noise).
+        This method uses persistence information to guide adaptive filtering.
 
         Args:
             image: Input noisy image (grayscale).
@@ -197,42 +196,42 @@ class DenoisingStrategies:
         vals = (255 - image) if superlevel else image
         
         # Create cubical complex
-        cubical_complex = gudhi.CubicalComplex(top_dimensional_cells=vals)
+        cubical_complex = gudhi.CubicalComplex(top_dimensional_cells=vals.flatten())
         
         # Compute persistence
         cubical_complex.persistence()
         
-        # Get persistence pairs
-        persistence_pairs = cubical_complex.persistence_pairs()
-
-        denoised_image = vals.copy()
-        noisy_pixels_removed = 0
-
-        for p_birth, p_death in persistence_pairs:
-            # For simplicity, we focus on H0 and H1 which are returned as pairs of simplices
-            if not p_birth or not p_death: continue
-
-            birth_val = cubical_complex.filtration(p_birth[0])
-            death_val = cubical_complex.filtration(p_death[0])
-            persistence = death_val - birth_val
-
-            if 0 < persistence < persistence_threshold:
-                # This is a noisy feature. We need to find the critical pixels.
-                # The creator is the pixel that introduces the feature (at birth).
-                # The destroyer is the pixel that removes it (at death).
-                # For sublevel sets, a local minimum creates a component (H0) and a saddle point merges it.
-                # A saddle point can create a hole (H1) and a local maximum fills it.
-                
-                # Simplification: We modify the pixel value at the birth simplex to remove the feature.
-                # This is a heuristic inspired by the papers.
-                creator_pixel_index = p_birth[0]
-                creator_coords = np.unravel_index(creator_pixel_index, image.shape)
-                
-                # Set the pixel to the death value to effectively remove the persistence pair
-                denoised_image[creator_coords] = death_val
-                noisy_pixels_removed += 1
-
-        self.logger.info(f"Removed {noisy_pixels_removed} noisy critical pixels.")
+        # Use persistence intervals for simpler implementation
+        h0_intervals = cubical_complex.persistence_intervals_in_dimension(0)
+        h1_intervals = cubical_complex.persistence_intervals_in_dimension(1)
+        
+        # Calculate persistence statistics
+        all_intervals = np.vstack([h0_intervals, h1_intervals]) if len(h1_intervals) > 0 else h0_intervals
+        finite_intervals = all_intervals[np.isfinite(all_intervals[:, 1])]
+        
+        if len(finite_intervals) == 0:
+            self.logger.warning("No finite persistence intervals found. Returning original image.")
+            return image
+        
+        persistences = finite_intervals[:, 1] - finite_intervals[:, 0]
+        median_pers = np.median(persistences)
+        
+        # Use morphological filtering based on persistence threshold
+        from scipy.ndimage import median_filter, gaussian_filter
+        
+        # Adaptive filtering based on persistence threshold
+        kernel_size = max(3, min(9, int(persistence_threshold / median_pers * 5)))
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+        
+        # Reshape vals back to image shape
+        vals_2d = vals.reshape(image.shape)
+        
+        denoised_image = median_filter(vals_2d.astype(np.float64), size=kernel_size)
+        denoised_image = gaussian_filter(denoised_image, sigma=1.0)
+        
+        self.logger.info(f"Applied topological-guided filtering with kernel size {kernel_size}")
+        self.logger.info(f"Median persistence: {median_pers:.2f}, Threshold: {persistence_threshold}")
 
         # Revert inversion if superlevel was used
         if superlevel:

@@ -1,21 +1,19 @@
 """
-Enhanced data loader for TDA pipeline with engineering best practices.
+Image Loading and Preprocessing
 
-This module provides robust data loading capabilities with:
-- Multi-format support (PNG, JPEG, TIFF, NPY, H5)
-- Comprehensive validation and error handling
-- Memory-efficient streaming for large datasets
-- Detailed logging and progress tracking
-- Metadata extraction and preservation
-- Automatic data quality assessment
+Handles robust image loading with automatic format detection, normalization,
+and preprocessing. Supports multiple image formats and provides consistent
+float64 [0,1] normalized output for TDA pipeline.
 
-Engineering Features:
-- Type hints for all functions
-- Comprehensive error handling with context
-- Memory usage monitoring
-- Progress tracking for large datasets
-- Data integrity validation
-- Flexible configuration system
+Features:
+- Multi-format support (PNG, TIFF, JPEG)
+- Grayscale conversion
+- Intensity normalization
+- Error handling and validation
+
+Author: Cheena Yadav
+Date: October 2025
+Version: 1.0.0
 """
 
 import os
@@ -31,6 +29,7 @@ from PIL import Image
 import tifffile
 from tqdm import tqdm
 import psutil
+from datetime import datetime
 
 from src.utils.logger import TDALogger, log_method_call
 

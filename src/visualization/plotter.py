@@ -265,4 +265,295 @@ class TDAVisualizer:
                 count = len(persistences)
                 stats.append(f"H{dim}: {count} features, max={max_pers:.3f}, avg={mean_pers:.3f}")
         return '\n'.join(stats)
+    
+    def plot_persistence_diagram_publication(self, persistence_dict, title, output_filename,
+                                            persistence_threshold=0.01):
+        """
+        Publication-quality persistence diagram with clean styling.
+        
+        Args:
+            persistence_dict: Dict with 'H0' and 'H1' keys containing persistence intervals
+            title: Clean title for the plot
+            output_filename: Output path
+            persistence_threshold: Minimum persistence to display (default: 0.01)
+        """
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor='white')
+        
+        # Extract data
+        h0 = persistence_dict.get('H0', np.array([]))
+        h1 = persistence_dict.get('H1', np.array([]))
+        
+        # Filter and plot
+        def plot_dimension(data, color, label, marker):
+            if len(data) == 0:
+                return
+            finite_data = data[np.isfinite(data[:, 1])]
+            if len(finite_data) == 0:
+                return
+            pers = finite_data[:, 1] - finite_data[:, 0]
+            mask = pers > persistence_threshold
+            filtered = finite_data[mask]
+            if len(filtered) > 0:
+                ax.scatter(filtered[:, 0], filtered[:, 1], 
+                          c=color, label=label, alpha=0.6, s=30, marker=marker,
+                          edgecolors='white', linewidth=0.5)
+        
+        # Find max value for diagonal
+        all_data = []
+        if len(h0) > 0:
+            all_data.append(h0)
+        if len(h1) > 0:
+            all_data.append(h1)
+        
+        if len(all_data) > 0:
+            all_points = np.vstack(all_data)
+            finite_points = all_points[np.isfinite(all_points).all(axis=1)]
+            if len(finite_points) > 0:
+                max_val = np.max(finite_points)
+            else:
+                max_val = 1.0
+        else:
+            max_val = 1.0
+        
+        # Plot features
+        plot_dimension(h0, '#E74C3C', 'H₀ (Components)', 'o')
+        plot_dimension(h1, '#3498DB', 'H₁ (Holes)', 's')
+        
+        # Diagonal line
+        ax.plot([0, max_val], [0, max_val], 'k--', alpha=0.3, linewidth=1.5, label='Birth = Death')
+        
+        # Styling
+        ax.set_xlabel('Birth', fontsize=14, weight='bold')
+        ax.set_ylabel('Death', fontsize=14, weight='bold')
+        ax.set_title(title, fontsize=16, weight='bold', pad=15)
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        ax.set_aspect('equal')
+        ax.set_xlim(0, max_val * 1.05)
+        ax.set_ylim(0, max_val * 1.05)
+        
+        # Add persistence threshold line
+        if persistence_threshold > 0:
+            x_thresh = np.linspace(0, max_val - persistence_threshold, 100)
+            y_thresh = x_thresh + persistence_threshold
+            ax.plot(x_thresh, y_thresh, 'g--', alpha=0.3, linewidth=1.5,
+                   label=f'Persistence threshold ({persistence_threshold:.3f})')
+            ax.legend(loc='upper left', fontsize=10, framealpha=0.95)
+        
+        # Save
+        output_path = Path(output_filename) if isinstance(output_filename, str) else output_filename
+        if not output_path.suffix:
+            output_path = output_path.with_suffix('.png')
+        
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        if self.logger:
+            self.logger.info(f"Saved publication-quality PH diagram to: {output_path}")
+        
+        return str(output_path)
+    
+    def plot_persistence_barcode_publication(self, persistence_dict, title, output_filename,
+                                            max_features=200):
+        """
+        Publication-quality barcode plot showing BOTH H0 and H1.
+        
+        Args:
+            persistence_dict: Dict with 'H0' and 'H1' keys
+            title: Clean title
+            output_filename: Output path
+            max_features: Maximum features to display per dimension (default: 200)
+        """
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(12, 8), facecolor='white')
+        
+        # Extract and filter data
+        h0 = persistence_dict.get('H0', np.array([]))
+        h1 = persistence_dict.get('H1', np.array([]))
+        
+        # Filter and sort by persistence
+        def filter_and_sort(data, max_count):
+            if len(data) == 0:
+                return np.array([])
+            
+            # Remove infinite deaths
+            finite_data = data[np.isfinite(data[:, 1])]
+            
+            # Calculate persistence
+            if len(finite_data) == 0:
+                return np.array([])
+            
+            pers = finite_data[:, 1] - finite_data[:, 0]
+            
+            # Sort by persistence (descending)
+            sorted_indices = np.argsort(pers)[::-1]
+            filtered = finite_data[sorted_indices]
+            
+            # Limit to max_count
+            if len(filtered) > max_count:
+                filtered = filtered[:max_count]
+            
+            return filtered
+        
+        h0_filtered = filter_and_sort(h0, max_features)
+        h1_filtered = filter_and_sort(h1, max_features)
+        
+        # Plot bars
+        y_pos = 0
+        
+        # H0 bars (red)
+        for i, (birth, death) in enumerate(h0_filtered):
+            ax.barh(y_pos, death - birth, left=birth, height=0.8,
+                   color='#E74C3C', alpha=0.7, edgecolor='white', linewidth=0.5)
+            y_pos += 1
+        
+        h0_count = len(h0_filtered)
+        
+        # Add separator
+        if h0_count > 0 and len(h1_filtered) > 0:
+            ax.axhline(y_pos - 0.5, color='black', linestyle='--', linewidth=2, alpha=0.5)
+            y_pos += 1
+        
+        # H1 bars (blue)
+        for i, (birth, death) in enumerate(h1_filtered):
+            ax.barh(y_pos, death - birth, left=birth, height=0.8,
+                   color='#3498DB', alpha=0.7, edgecolor='white', linewidth=0.5)
+            y_pos += 1
+        
+        h1_count = len(h1_filtered)
+        
+        # Styling
+        ax.set_xlabel('Filtration Parameter', fontsize=14, weight='bold')
+        ax.set_ylabel('Topological Features (sorted by persistence)', fontsize=14, weight='bold')
+        ax.set_title(title, fontsize=16, weight='bold', pad=15)
+        
+        # Add legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='#E74C3C', alpha=0.7, 
+                  label=f'H₀ Components (top {max_features})'),
+            Patch(facecolor='#3498DB', alpha=0.7, 
+                  label=f'H₁ Holes (top {max_features})')
+        ]
+        ax.legend(handles=legend_elements, loc='lower right', fontsize=12,
+                 framealpha=0.95, edgecolor='gray', fancybox=True)
+        
+        # Grid
+        ax.grid(True, axis='x', alpha=0.2, linestyle='--', linewidth=0.5)
+        ax.set_ylim(-0.5, y_pos)
+        
+        # Remove y-axis ticks (too many features)
+        ax.set_yticks([])
+        
+        # Add text showing filtering info
+        total_h0 = len(h0) if len(h0) > 0 else 0
+        total_h1 = len(h1) if len(h1) > 0 else 0
+        info_text = (f"Displaying top {max_features} most persistent features per dimension\n"
+                    f"Total features: H₀={total_h0}, H₁={total_h1} | "
+                    f"Displayed: H₀={h0_count}, H₁={h1_count}")
+        ax.text(0.5, -0.08, info_text, transform=ax.transAxes,
+               ha='center', fontsize=10, style='italic', color='gray')
+        
+        # Save
+        output_path = Path(output_filename) if isinstance(output_filename, str) else output_filename
+        if not output_path.suffix:
+            output_path = output_path.with_suffix('.png')
+        
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        if self.logger:
+            self.logger.info(f"Saved publication-quality barcode to: {output_path}")
+        
+        return str(output_path)
+    
+    def plot_betti_evolution(self, persistence_dict, title, output_filename, num_steps=100):
+        """
+        Plot how Betti numbers evolve during filtration.
+        
+        Args:
+            persistence_dict: Dict with 'H0' and 'H1' keys
+            title: Plot title
+            output_filename: Output path
+            num_steps: Number of filtration steps to compute
+        """
+        plt.style.use('default')
+        fig, ax1 = plt.subplots(figsize=(12, 6), facecolor='white')
+        
+        # Extract data
+        h0 = persistence_dict.get('H0', np.array([]))
+        h1 = persistence_dict.get('H1', np.array([]))
+        
+        # Find filtration range
+        all_values = []
+        for data in [h0, h1]:
+            if len(data) > 0:
+                finite_data = data[np.isfinite(data).all(axis=1)]
+                if len(finite_data) > 0:
+                    all_values.extend(finite_data.flatten())
+        
+        if len(all_values) == 0:
+            if self.logger:
+                self.logger.warning("No finite data for Betti evolution plot")
+            return
+        
+        min_val = min(all_values)
+        max_val = max(all_values)
+        filtration_values = np.linspace(min_val, max_val, num_steps)
+        
+        # Compute Betti numbers at each filtration value
+        betti_0 = []
+        betti_1 = []
+        
+        for t in filtration_values:
+            # Count features alive at time t
+            b0 = 0
+            b1 = 0
+            
+            if len(h0) > 0:
+                for birth, death in h0:
+                    if birth <= t < death or (np.isinf(death) and birth <= t):
+                        b0 += 1
+            
+            if len(h1) > 0:
+                for birth, death in h1:
+                    if birth <= t < death or (np.isinf(death) and birth <= t):
+                        b1 += 1
+            
+            betti_0.append(b0)
+            betti_1.append(b1)
+        
+        # Plot β₀
+        ax1.plot(filtration_values, betti_0, color='#E74C3C', linewidth=2, label='β₀ (Components)')
+        ax1.set_xlabel('Filtration Parameter', fontsize=14, weight='bold')
+        ax1.set_ylabel('β₀ (Components)', fontsize=14, weight='bold', color='#E74C3C')
+        ax1.tick_params(axis='y', labelcolor='#E74C3C')
+        ax1.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        
+        # Create second y-axis for β₁
+        ax2 = ax1.twinx()
+        ax2.plot(filtration_values, betti_1, color='#3498DB', linewidth=2, label='β₁ (Holes)')
+        ax2.set_ylabel('β₁ (Holes)', fontsize=14, weight='bold', color='#3498DB')
+        ax2.tick_params(axis='y', labelcolor='#3498DB')
+        
+        # Title
+        ax1.set_title(title, fontsize=16, weight='bold', pad=15)
+        
+        # Combined legend
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='best', fontsize=12, framealpha=0.95)
+        
+        # Save
+        output_path = Path(output_filename) if isinstance(output_filename, str) else output_filename
+        if not output_path.suffix:
+            output_path = output_path.with_suffix('.png')
+        
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        if self.logger:
+            self.logger.info(f"Saved Betti evolution plot to: {output_path}")
+        
+        return str(output_path)
 

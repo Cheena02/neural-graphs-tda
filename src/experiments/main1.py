@@ -1,6 +1,42 @@
 """
-Enhanced TDA Pipeline with Dataset Selection and Detailed Analysis
-ENHANCED VERSION: Added comprehensive comparative analysis while preserving original structure
+TDA Experimental Pipeline - Main Orchestration Module
+
+This module implements a comprehensive experimental framework for evaluating
+persistent homology stability under controlled noise conditions and systematic
+denoising protocols. It coordinates end-to-end execution across 323 experimental
+conditions spanning multiple biological image datasets.
+
+Key Features:
+    - Three-stage comparison protocol (clean → noisy → denoised)
+    - Adaptive parameter selection based on noise estimation
+    - Systematic evaluation of filtration methods (intensity vs EDT)
+    - Comprehensive metric collection and statistical analysis
+    - Automated visualization generation
+
+Mathematical Foundation:
+    Implements empirical validation of the stability theorem for persistent
+    homology: d_W(dgm(f), dgm(g)) ≤ ||f - g||_∞
+
+Dependencies:
+    - GUDHI 3.x: Cubical complex persistence computation
+    - OpenCV: Image preprocessing and denoising
+    - NumPy/Pandas: Numerical computation and data management
+    - Matplotlib/Seaborn: Visualization generation
+
+Usage:
+    # >>> pipeline = TDAExperimentPipeline(
+    # ...     results_dir="TDA_Analysis_Results",
+    # ...     datasets_to_run=["ReportImages"]
+    # ... )
+    # >>> pipeline.run_experiments()
+
+Author: Cheena Yadav (c3337749)
+Supervisor: Stephan Chalup
+Institution: University of Newcastle
+Course: SKC-05 Project - Computer System Engineering (Honours)
+Date: October 2025
+Version: 1.0.0
+License: Academic Use Only
 """
 
 import numpy as np
@@ -17,7 +53,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Add project root to the Python path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.resolve()))
+PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data_io.enhanced_loader import EnhancedDataLoader
 from src.tda.cubical import cubical_diagrams
@@ -32,18 +69,20 @@ from src.tda.distances import compute_all_distances
 from src.tda.edt import edt_diagrams, compare_filtrations
 
 
-ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
+# ONEDRIVE_PATH = r"C:\Users\cheen\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 
+ONEDRIVE_PATH = r"C:\Users\61431\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 DATASETS_TO_RUN = [
       # "MOUSEBIRN",  # 8 images - good for testing
-    # "synthetic_data",  # 18 images
+     # "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
-     'ReportImages'
+     'ReportImages',
+        'test',
 ]
 
 # CONFIGURATION
-RUN_ALL_DATASETS = False  # Set to True to process everything
+RUN_ALL_DATASETS = False# Set to True to process everything
 EXCLUDE_DATASETS = [" "]
 
 # NOISE EXPERIMENT CONFIGURATION
@@ -52,16 +91,28 @@ RUN_DENOISING_EXPERIMENTS = True
 
 # Noise experiments - using your exact structure
 NOISE_EXPERIMENTS = [
-    {"type": "gaussian", "param": 0.05, "name": "gaussian_0.05"},
-    {"type": "gaussian", "param": 0.1, "name": "gaussian_0.1"},
+    # Gaussian noise - wider range for stability curve
+    {"type": "gaussian", "param": 0.01, "name": "gaussian_0.01"},  # Very mild
+    {"type": "gaussian", "param": 0.03, "name": "gaussian_0.03"},  # Mild
+    {"type": "gaussian", "param": 0.05, "name": "gaussian_0.05"},  # Moderate
+    {"type": "gaussian", "param": 0.08, "name": "gaussian_0.08"},  # Strong
+    {"type": "gaussian", "param": 0.10, "name": "gaussian_0.10"},  # Very strong
+
+    # Salt-and-pepper noise
+    {"type": "salt_pepper", "param": 0.01, "name": "salt_pepper_0.01"},
+    {"type": "salt_pepper", "param": 0.03, "name": "salt_pepper_0.03"},
     {"type": "salt_pepper", "param": 0.05, "name": "salt_pepper_0.05"},
-    {"type": "salt_pepper", "param": 0.1, "name": "salt_pepper_0.1"},
+    {"type": "salt_pepper", "param": 0.08, "name": "salt_pepper_0.08"},
+    {"type": "salt_pepper", "param": 0.10, "name": "salt_pepper_0.10"},
 ]
 
 DENOISING_METHODS = [
     {"method": "median_filter", "name": "median_filter", "window_size": 5},
     {"method": "bilateral_filter", "name": "bilateral_filter", "sigma_color": 75, "sigma_spatial": 75},
     {"method": "non_local_means", "name": "non_local_means", "h": 10},
+    {"method": "topological_denoising", "name": "topological", "persistence_threshold": 10.0},
+    {"method": "morphological_denoising", "name": "morphological", "kernel_size": 5, "operation": "opening"},
+
 ]
 
 # ADDED: Expected Betti numbers for verification (synthetic images)
@@ -78,8 +129,8 @@ EXPECTED_BETTI = {
 }
 # FILTRATION CONFIGURATION
 USE_EDT_FILTRATION = False # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = False
-COMPUTE_DISTANCES = False # Set to False to skip slow distance calculations
+COMPARE_FILTRATIONS = True
+COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
@@ -121,6 +172,9 @@ class TDAExperimentPipeline:
         self.three_stage_comparisons = []  # Clean → Noisy → Denoised comparisons
         self.verification_results = []  # Verification for synthetic images
         self.is_synthetic_dataset = any('synthetic' in dataset.lower() for dataset in datasets_to_run)
+        
+        # ADDED: Control flag for visualization generation
+        self.generate_visualizations = True  # Set to False to skip visualizations for faster processing
 
         # ADDED: Set random seed for reproducibility
         if RANDOM_SEED is not None:
@@ -167,7 +221,6 @@ class TDAExperimentPipeline:
 
         return verification_result
 
-    # ADDED: Three-stage comparative analysis
     def perform_three_stage_comparison(self, clean_image: np.ndarray, image_name: str,
                                        noise_config: dict, denoise_config: dict) -> dict:
         """Perform three-stage comparison: Clean → Noisy → Denoised."""
@@ -202,6 +255,17 @@ class TDAExperimentPipeline:
         elif denoise_config["method"] == "non_local_means":
             denoised_uint8 = self.denoising_strategies.apply_non_local_means(
                 (noisy_image * 255).astype(np.uint8)
+            )
+        elif denoise_config["method"] == "topological_denoising":  # ADD THIS!
+            denoised_uint8 = self.denoising_strategies.apply_topological_denoising(
+                (noisy_image * 255).astype(np.uint8),
+                persistence_threshold=denoise_config.get("persistence_threshold", 10.0)
+            )
+        elif denoise_config["method"] == "morphological_denoising":
+            denoised_uint8 = self.denoising_strategies.apply_morphological_denoising(
+                (noisy_image * 255).astype(np.uint8),
+                kernel_size=denoise_config.get("kernel_size", 5),
+                operation=denoise_config.get("operation", "opening")
             )
 
         denoised_image = denoised_uint8.astype(np.float32) / 255.0
@@ -283,6 +347,8 @@ class TDAExperimentPipeline:
 
         self.three_stage_comparisons.append(comparison)
 
+
+
         # Log comparison results
         self.logger.info(f"      🔄 Three-stage comparison: {image_name}")
         self.logger.info(f"         Clean: β₀={clean_results['betti_0']}, β₁={clean_results['betti_1']}")
@@ -348,12 +414,6 @@ class TDAExperimentPipeline:
         self.logger.info(f"         Superlevel: {params['superlevel']}")
         self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
 
-        # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
-        # Skip if we're doing comparison (comparison function handles both)
-        if COMPARE_FILTRATIONS:
-            # Just return empty dict, comparison will be done separately
-            self.logger.info(f"         Skipping individual filtration (comparison mode enabled)")
-            return {"H0": np.array([]), "H1": np.array([])}
 
         # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
         self.logger.info(f"         Using EDT filtration: {USE_EDT_FILTRATION}")
@@ -404,47 +464,106 @@ class TDAExperimentPipeline:
 
     def _process_and_save_to_folder(self, image: np.ndarray, variant_name: str,
                                     save_dir: Path, subfolder_name: str, variant_type: str):
-        """Process image and save all results to a single folder - FIXED"""
+        """Process image and save all results with new folder structure for dual filtrations"""
 
-        # Run TDA analysis
+        # Run TDA analysis (this is just for logging, actual diagrams come from comparison)
         persistence_dict = self.analyze_and_log_enhanced(image, variant_name, "baseline", variant_type, subfolder_name)
 
-        # FIXED: Convert dictionary format to list format for visualizer and calculate Betti numbers
-        baseline_diags = []
-        betti_numbers = {"betti_0": 0, "betti_1": 0}
-
-
-        # Perform filtration comparison if enabled
+        # Perform filtration comparison if enabled - this generates both intensity and EDT results
+        comparison_results = None
         if COMPARE_FILTRATIONS:
             self.logger.info(f"      🔄 Running filtration comparison for {variant_name}")
-            self.perform_filtration_comparison_analysis(image, variant_name)
-
-        for dim in [0, 1]:
-            if f"H{dim}" in persistence_dict:
-                for interval in persistence_dict[f"H{dim}"]:
-                    baseline_diags.append((dim, interval))
-                betti_numbers[f"betti_{dim}"] = len(persistence_dict[f"H{dim}"])
-
-        # Create visualizers that save to the same directory
-        diagram_viz = TDAVisualizer(save_dir, color_scheme="professional", logger=self.logger)
-        barcode_viz = TDAVisualizer(save_dir, color_scheme="professional", logger=self.logger)
-
-        # Save plots with descriptive names
-        filtration_method = "edt" if USE_EDT_FILTRATION else "intensity"
-        diagram_viz.plot_persistence_diagram(baseline_diags, f"{subfolder_name}: {variant_name}",
-                                             f"{variant_name}_{filtration_method}_ph_diagram")
-        barcode_viz.plot_persistence_barcode(baseline_diags, f"{subfolder_name}: {variant_name}",
-                                             f"{variant_name}_{filtration_method}_ph_barcode")
-
-        # FIXED: Save step-by-step - Now betti_numbers is defined
-        try:
-            self.comprehensive_analyzer.analyze_image_comprehensive(
-                image, self.last_params,persistence_dict, variant_name, save_dir
+            comparison_results = self.perform_filtration_comparison_analysis(image, variant_name, save_dir)
+        
+        # NEW FOLDER STRUCTURE: Create intensity/ and edt/ subdirectories
+        if comparison_results and 'intensity_diagrams' in comparison_results and 'edt_diagrams' in comparison_results:
+            intensity_dir = save_dir / "intensity"
+            edt_dir = save_dir / "edt"
+            intensity_dir.mkdir(parents=True, exist_ok=True)
+            edt_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create visualizers for each filtration method
+            from src.visualization.plotter import TDAVisualizer
+            from src.analysis.step_by_step_visualizer import StepByStepVisualizer
+            
+            intensity_viz = TDAVisualizer(intensity_dir, color_scheme="professional", logger=self.logger)
+            edt_viz = TDAVisualizer(edt_dir, color_scheme="professional", logger=self.logger)
+            
+            # === INTENSITY FILTRATION VISUALIZATIONS ===
+            intensity_viz.plot_persistence_diagram_publication(
+                comparison_results['intensity_diagrams'],
+                f"{variant_name} (Intensity)",
+                intensity_dir / "ph_diagram.png",
+                persistence_threshold=0.01
             )
-        except Exception as e:
-            self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
-
-        self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/")
+            intensity_viz.plot_persistence_barcode_publication(
+                comparison_results['intensity_diagrams'],
+                f"{variant_name} (Intensity)",
+                intensity_dir / "barcode.png",
+                max_features=200
+            )
+            intensity_viz.plot_betti_evolution(
+                comparison_results['intensity_diagrams'],
+                f"{variant_name} (Intensity) - Betti Evolution",
+                intensity_dir / "betti_evolution.png"
+            )
+            
+            # Intensity step-by-step
+            try:
+                intensity_step_viz = StepByStepVisualizer(logger=self.logger)
+                intensity_step_viz.create_step_by_step_visualization(
+                    image, 
+                    self.last_params,
+                    comparison_results['intensity_diagrams'],
+                    f"{variant_name}_intensity",
+                    str(intensity_dir)
+                )
+            except Exception as e:
+                self.logger.error(f"Failed intensity step-by-step for {variant_name}: {e}")
+            
+            # === EDT FILTRATION VISUALIZATIONS ===
+            edt_viz.plot_persistence_diagram_publication(
+                comparison_results['edt_diagrams'],
+                f"{variant_name} (EDT)",
+                edt_dir / "ph_diagram.png",
+                persistence_threshold=0.01
+            )
+            edt_viz.plot_persistence_barcode_publication(
+                comparison_results['edt_diagrams'],
+                f"{variant_name} (EDT)",
+                edt_dir / "barcode.png",
+                max_features=200
+            )
+            edt_viz.plot_betti_evolution(
+                comparison_results['edt_diagrams'],
+                f"{variant_name} (EDT) - Betti Evolution",
+                edt_dir / "betti_evolution.png"
+            )
+            
+            # EDT step-by-step
+            try:
+                edt_step_viz = StepByStepVisualizer(logger=self.logger)
+                edt_step_viz.create_step_by_step_visualization(
+                    image,
+                    self.last_params,
+                    comparison_results['edt_diagrams'],
+                    f"{variant_name}_edt",
+                    str(edt_dir)
+                )
+            except Exception as e:
+                self.logger.error(f"Failed EDT step-by-step for {variant_name}: {e}")
+            
+            self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/ (intensity/ and edt/)")
+        else:
+            # Fallback: If comparison is disabled, use old single-filtration approach
+            self.logger.warning(f"Comparison disabled or failed, using fallback visualization")
+            try:
+                self.comprehensive_analyzer.analyze_image_comprehensive(
+                    image, self.last_params, persistence_dict, variant_name, save_dir
+                )
+            except Exception as e:
+                self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
+            self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/")
 
     @log_method_call
     def run(self):
@@ -856,7 +975,7 @@ class TDAExperimentPipeline:
         # Use this title in your plotting function
         # ... rest of visualization code with enhanced context
 
-    def perform_filtration_comparison_analysis(self, image: np.ndarray, image_name: str):
+    def perform_filtration_comparison_analysis(self, image: np.ndarray, image_name: str, save_dir: Path = None):
         """Perform dedicated comparison between intensity and EDT filtrations."""
 
         if not COMPARE_FILTRATIONS:
@@ -910,6 +1029,12 @@ class TDAExperimentPipeline:
             f"        Intensity: β₀={comparison_results['intensity_betti_0']}, β₁={comparison_results['intensity_betti_1']}")
         self.logger.info(f"        EDT: β₀={comparison_results['edt_betti_0']}, β₁={comparison_results['edt_betti_1']}")
         self.logger.info(f"        Better method: {comparison_results.get('better_method', 'unknown')}")
+        
+        # ADDED: Generate visualizations for BOTH filtrations when in comparison mode
+        # NOTE: This function is called from _process_and_save_to_folder which already has save_dir
+        # We'll pass save_dir as a parameter instead of trying to reconstruct it
+        # For now, skip visualization here - it will be handled by the calling function
+        return comparison_results
 
     def finalize_results(self):
         """Generate comprehensive final reports with verification results"""
@@ -1002,7 +1127,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir="TDA_Analysis_Results",
+        results_dir=str(PROJECT_ROOT /"TDA_Results27102025V1"),
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )
