@@ -7,23 +7,23 @@
     - **Datasets Processed**: ReportImages
 
     ## Results Overview
-    - **Total Images Analyzed**: 5
-    - **Total Comparisons**: 60
-    - **Average Noise Impact**: 44655.12 features
-    - **Average Recovery Rate**: 0.29%
+    - **Total Images Analyzed**: 7
+    - **Total Comparisons**: 84
+    - **Average Noise Impact**: 34435.30 features
+    - **Average Recovery Rate**: -0.05%
 
     ## Noise Type Analysis
                          mean           std
 noise_type                             
-gaussian     40182.700000  47244.129781
-salt_pepper  49127.533333  46936.547378
+gaussian     30902.833333  42765.988434
+salt_pepper  37967.761905  43469.651942
 
     ## Denoising Method Effectiveness
                           mean       std
 denoise_method                      
-bilateral_filter  0.387448  0.591096
-median_filter     0.054218  2.319701
-non_local_means   0.429006  0.927970
+bilateral_filter  0.029815  2.064906
+median_filter    -0.197322  2.603617
+non_local_means   0.019697  2.049322
 
     ## Distance Analysis
     - **Average Wasserstein H0 (Clean->Noisy)**: 0.0000
