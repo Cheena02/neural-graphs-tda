@@ -493,19 +493,19 @@ class TDAExperimentPipeline:
             intensity_viz.plot_persistence_diagram_publication(
                 comparison_results['intensity_diagrams'],
                 f"{variant_name} (Intensity)",
-                intensity_dir / "ph_diagram.png",
+                intensity_dir / f"{variant_name}_ph_diagram.png",
                 persistence_threshold=0.01
             )
             intensity_viz.plot_persistence_barcode_publication(
                 comparison_results['intensity_diagrams'],
                 f"{variant_name} (Intensity)",
-                intensity_dir / "barcode.png",
+                intensity_dir / f"{variant_name}_barcode.png",
                 max_features=200
             )
             intensity_viz.plot_betti_evolution(
                 comparison_results['intensity_diagrams'],
                 f"{variant_name} (Intensity) - Betti Evolution",
-                intensity_dir / "betti_evolution.png"
+                intensity_dir / f"{variant_name}_betti_evolution.png"
             )
             
             # Intensity step-by-step
@@ -525,19 +525,19 @@ class TDAExperimentPipeline:
             edt_viz.plot_persistence_diagram_publication(
                 comparison_results['edt_diagrams'],
                 f"{variant_name} (EDT)",
-                edt_dir / "ph_diagram.png",
+                edt_dir / f"{variant_name}_ph_diagram.png",
                 persistence_threshold=0.01
             )
             edt_viz.plot_persistence_barcode_publication(
                 comparison_results['edt_diagrams'],
                 f"{variant_name} (EDT)",
-                edt_dir / "barcode.png",
+                edt_dir / f"{variant_name}_barcode.png",
                 max_features=200
             )
             edt_viz.plot_betti_evolution(
                 comparison_results['edt_diagrams'],
                 f"{variant_name} (EDT) - Betti Evolution",
-                edt_dir / "betti_evolution.png"
+                edt_dir / f"{variant_name}_betti_evolution.png"
             )
             
             # EDT step-by-step

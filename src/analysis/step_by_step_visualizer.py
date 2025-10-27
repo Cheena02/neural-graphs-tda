@@ -69,14 +69,8 @@ class StepByStepVisualizer:
         return name.title()
 
     def _detect_filtration_type(self, filename):
-        """
-        Detect if this is EDT or intensity filtration from filename.
-        
-        Returns:
-            bool: True if EDT, False if intensity
-        """
+        """Detect if this is EDT or intensity filtration from filename."""
         filename_lower = filename.lower()
-        # Check for EDT indicators in filename
         return '_edt' in filename_lower or 'edt_' in filename_lower
 
     def create_step_by_step_visualization(self, image, params, persistence_dict,
@@ -116,9 +110,9 @@ class StepByStepVisualizer:
         # Detect filtration type
         is_edt = self._detect_filtration_type(filename)
 
-        # Determine filtration type and label
+        # Compute filtration values and determine label
         if is_edt:
-            # EDT filtration - always uses the normalized image directly
+            # EDT filtration - always uses normalized image directly
             filtration_values = img_norm
             direction = "EDT (Euclidean Distance Transform)"
         elif superlevel:
