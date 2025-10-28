@@ -41,7 +41,7 @@ DATASETS_TO_RUN = [
     # "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
-    #  'ReportImages'
+     'ReportImages'
 ]
 
 # CONFIGURATION
