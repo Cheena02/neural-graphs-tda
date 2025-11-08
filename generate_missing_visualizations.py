@@ -175,11 +175,12 @@ fig, axes = plt.subplots(1, 2, figsize=(16, 5))
 ax = axes[0]
 sns.heatmap(pivot_h0, annot=True, fmt='.1f', cmap='YlOrRd', 
             cbar_kws={'label': 'Wasserstein Distance'}, ax=ax,
-            linewidths=1, linecolor='black')
+            linewidths=1, linecolor='black',annot_kws={'size': 16})
+ax.tick_params(labelsize=14)
 ax.set_title('Wasserstein H₀ Distance\n(Connected Components)', 
              fontsize=13, fontweight='bold')
-ax.set_xlabel('Noise Level', fontsize=12, fontweight='bold')
-ax.set_ylabel('Noise Type', fontsize=12, fontweight='bold')
+ax.set_xlabel('Noise Level', fontsize=16, fontweight='bold')
+ax.set_ylabel('Noise Type', fontsize=16, fontweight='bold')
 ax.set_yticklabels(['Gaussian', 'Salt-Pepper'], rotation=0)
 
 # H1 Heatmap
@@ -193,11 +194,12 @@ pivot_h1 = df.pivot_table(
 ax = axes[1]
 sns.heatmap(pivot_h1, annot=True, fmt='.1f', cmap='YlGnBu',
             cbar_kws={'label': 'Wasserstein Distance'}, ax=ax,
-            linewidths=1, linecolor='black')
+            linewidths=1, linecolor='black',annot_kws={'size': 16})
+ax.tick_params(labelsize=14)
 ax.set_title('Wasserstein H₁ Distance\n(Topological Holes)', 
              fontsize=13, fontweight='bold')
-ax.set_xlabel('Noise Level', fontsize=12, fontweight='bold')
-ax.set_ylabel('Noise Type', fontsize=12, fontweight='bold')
+ax.set_xlabel('Noise Level', fontsize=16, fontweight='bold')
+ax.set_ylabel('Noise Type', fontsize=16, fontweight='bold')
 ax.set_yticklabels(['Gaussian', 'Salt-Pepper'], rotation=0)
 
 plt.suptitle('Wasserstein Distance Heatmaps: Noise Impact on Topology',
@@ -229,22 +231,24 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 7))
 ax = axes[0]
 sns.heatmap(pivot_recovery_h0, annot=True, fmt='.1f', cmap='RdYlGn_r',
             cbar_kws={'label': 'Wasserstein Distance\n(Lower = Better Recovery)'},
-            ax=ax, linewidths=1, linecolor='black')
+            ax=ax, linewidths=1, linecolor='black',annot_kws={'size': 16})
+ax.tick_params(labelsize=14)
 ax.set_title('Denoising Recovery: H₀\n(Lower Distance = Better)', 
              fontsize=13, fontweight='bold')
-ax.set_xlabel('Noise Type', fontsize=12, fontweight='bold')
-ax.set_ylabel('Denoising Method', fontsize=12, fontweight='bold')
+ax.set_xlabel('Noise Type', fontsize=16, fontweight='bold')
+ax.set_ylabel('Denoising Method', fontsize=16, fontweight='bold')
 ax.set_xticklabels(['Gaussian', 'Salt-Pepper'], rotation=0)
 
 # Recovery H1
 ax = axes[1]
 sns.heatmap(pivot_recovery_h1, annot=True, fmt='.1f', cmap='RdYlGn_r',
             cbar_kws={'label': 'Wasserstein Distance\n(Lower = Better Recovery)'},
-            ax=ax, linewidths=1, linecolor='black')
+            ax=ax, linewidths=1, linecolor='black',annot_kws={'size': 16})
+ax.tick_params(labelsize=14)
 ax.set_title('Denoising Recovery: H₁\n(Lower Distance = Better)', 
              fontsize=13, fontweight='bold')
-ax.set_xlabel('Noise Type', fontsize=12, fontweight='bold')
-ax.set_ylabel('Denoising Method', fontsize=12, fontweight='bold')
+ax.set_xlabel('Noise Type', fontsize=16, fontweight='bold')
+ax.set_ylabel('Denoising Method', fontsize=16, fontweight='bold')
 ax.set_xticklabels(['Gaussian', 'Salt-Pepper'], rotation=0)
 
 plt.suptitle('Denoising Recovery Effectiveness (Wasserstein Distance from Clean)',

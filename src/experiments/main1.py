@@ -74,11 +74,11 @@ from src.tda.edt import edt_diagrams, compare_filtrations
 ONEDRIVE_PATH = r"C:\Users\61431\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 DATASETS_TO_RUN = [
       # "MOUSEBIRN",  # 8 images - good for testing
-     # "synthetic_data",  # 18 images
+      "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
-     'ReportImages',
-        'test',
+    #  'ReportImages',
+    #     'test',
 ]
 
 # CONFIGURATION
@@ -128,8 +128,8 @@ EXPECTED_BETTI = {
     'synthetic_figure_eight': {'betti_0': 1, 'betti_1': 2}
 }
 # FILTRATION CONFIGURATION
-USE_EDT_FILTRATION = False # Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = True
+USE_EDT_FILTRATION = True# Set to True to use EDT instead of intensity
+COMPARE_FILTRATIONS = False
 COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
@@ -1127,7 +1127,7 @@ if __name__ == "__main__":
     print("✨ ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir=str(PROJECT_ROOT /"TDA_Results27102025V1"),
+        results_dir=str(PROJECT_ROOT /"TDA_ResultsEDT29102025V1"),
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )
