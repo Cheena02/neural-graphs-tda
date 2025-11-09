@@ -3,7 +3,7 @@ TDA Experimental Pipeline - Main Orchestration Module
 
 This module implements a comprehensive experimental framework for evaluating
 persistent homology stability under controlled noise conditions and systematic
-denoising protocols. It coordinates end-to-end execution across 323 experimental
+denoising protocols. It coordinates end-to-end execution across 300 experimental
 conditions spanning multiple biological image datasets.
 
 Key Features:
@@ -73,12 +73,12 @@ from src.tda.edt import edt_diagrams, compare_filtrations
 
 ONEDRIVE_PATH = r"C:\Users\61431\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 DATASETS_TO_RUN = [
-      # "MOUSEBIRN",  # 8 images - good for testing
-      "synthetic_data",  # 18 images
-    #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
-    #  "nucmm",            Will process Mouse, Zebrafish subfolders
-    #  'ReportImages',
-    #     'test',
+    # "MOUSEBIRN",        # 8 images - good for testing
+    # "synthetic_data",   # 18 images
+    # "defungi",          # Will process H1, H2, H3, H5, H6 automatically
+    # "nucmm",            # Will process Mouse, Zebrafish subfolders
+    # "ReportImages",
+    "test",
 ]
 
 # CONFIGURATION
@@ -131,6 +131,7 @@ EXPECTED_BETTI = {
 USE_EDT_FILTRATION = True# Set to True to use EDT instead of intensity
 COMPARE_FILTRATIONS = False
 COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
+
 # REPRODUCIBILITY CONFIGURATION
 RANDOM_SEED = 42
 
@@ -181,9 +182,9 @@ class TDAExperimentPipeline:
             np.random.seed(RANDOM_SEED)
             import random
             random.seed(RANDOM_SEED)
-            self.logger.info(f"🎲 Random seed set to: {RANDOM_SEED}")
+            self.logger.info(f" Random seed set to: {RANDOM_SEED}")
         else:
-            self.logger.info("🎲 Using random seed (non-reproducible)")
+            self.logger.info(" Using random seed (non-reproducible)")
 
 
 
@@ -213,9 +214,9 @@ class TDAExperimentPipeline:
         self.verification_results.append(verification_result)
 
         if verification_result["verified"]:
-            self.logger.info(f"        ✅ VERIFICATION PASSED for {image_name}")
+            self.logger.info(f"         VERIFICATION PASSED for {image_name}")
         else:
-            self.logger.warning(f"        ❌ VERIFICATION FAILED for {image_name}")
+            self.logger.warning(f"         VERIFICATION FAILED for {image_name}")
             self.logger.warning(f"           Expected: β₀={expected['betti_0']}, β₁={expected['betti_1']}")
             self.logger.warning(f"           Computed: β₀={computed_betti['betti_0']}, β₁={computed_betti['betti_1']}")
 
@@ -350,7 +351,7 @@ class TDAExperimentPipeline:
 
 
         # Log comparison results
-        self.logger.info(f"      🔄 Three-stage comparison: {image_name}")
+        self.logger.info(f"         Three-stage comparison: {image_name}")
         self.logger.info(f"         Clean: β₀={clean_results['betti_0']}, β₁={clean_results['betti_1']}")
         self.logger.info(f"         Noisy: β₀={noisy_results['betti_0']}, β₁={noisy_results['betti_1']} "
                          f"(Δ={comparison['noise_impact_total']:+d})")
@@ -409,7 +410,7 @@ class TDAExperimentPipeline:
         params = self.param_selector.select_optimal_parameters(image)
         self.last_params = params  # Store for step-by-step visualization
 
-        self.logger.info(f"      🎯 Parameters selected:")
+        self.logger.info(f"         Parameters selected:")
         self.logger.info(f"         Threshold: {params['threshold']:.6f}")
         self.logger.info(f"         Superlevel: {params['superlevel']}")
         self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
@@ -433,7 +434,7 @@ class TDAExperimentPipeline:
         betti_1 = len(persistence_dict.get("H1", []))
         total_features = betti_0 + betti_1
 
-        self.logger.info(f"      📊 TDA Results:")
+        self.logger.info(f"         TDA Results:")
         self.logger.info(f"         Total features: {total_features}")
         self.logger.info(f"         Betti 0 (components): {betti_0}")
         self.logger.info(f"         Betti 1 (holes): {betti_1}")
@@ -472,7 +473,7 @@ class TDAExperimentPipeline:
         # Perform filtration comparison if enabled - this generates both intensity and EDT results
         comparison_results = None
         if COMPARE_FILTRATIONS:
-            self.logger.info(f"      🔄 Running filtration comparison for {variant_name}")
+            self.logger.info(f"       Running filtration comparison for {variant_name}")
             comparison_results = self.perform_filtration_comparison_analysis(image, variant_name, save_dir)
         
         # NEW FOLDER STRUCTURE: Create intensity/ and edt/ subdirectories
@@ -553,7 +554,7 @@ class TDAExperimentPipeline:
             except Exception as e:
                 self.logger.error(f"Failed EDT step-by-step for {variant_name}: {e}")
             
-            self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/ (intensity/ and edt/)")
+            self.logger.info(f"           {variant_name} saved to {save_dir.name}/ (intensity/ and edt/)")
         else:
             # Fallback: If comparison is disabled, use old single-filtration approach
             self.logger.warning(f"Comparison disabled or failed, using fallback visualization")
@@ -563,7 +564,7 @@ class TDAExperimentPipeline:
                 )
             except Exception as e:
                 self.logger.error(f"Failed step-by-step for {variant_name}: {e}")
-            self.logger.info(f"          ✅ {variant_name} saved to {save_dir.name}/")
+            self.logger.info(f"           {variant_name} saved to {save_dir.name}/")
 
     @log_method_call
     def run(self):
@@ -572,13 +573,13 @@ class TDAExperimentPipeline:
             if RUN_ALL_DATASETS:
                 discovered_datasets = self.discover_all_datasets()
                 datasets_to_process = [d for d in discovered_datasets if d not in EXCLUDE_DATASETS]
-                self.logger.info(f"🌍 Running ALL datasets mode")
-                self.logger.info(f"📊 Discovered {len(discovered_datasets)} datasets")
-                self.logger.info(f"✅ Processing {len(datasets_to_process)} datasets (excluding: {EXCLUDE_DATASETS})")
+                self.logger.info(f" Running ALL datasets mode")
+                self.logger.info(f" Discovered {len(discovered_datasets)} datasets")
+                self.logger.info(f" Processing {len(datasets_to_process)} datasets (excluding: {EXCLUDE_DATASETS})")
             else:
                 datasets_to_process = self.datasets_to_run
-                self.logger.info(f"🎯 Running SELECTED datasets mode")
-                self.logger.info(f"📊 Processing {len(datasets_to_process)} selected datasets")
+                self.logger.info(f" Running SELECTED datasets mode")
+                self.logger.info(f" Processing {len(datasets_to_process)} selected datasets")
 
             experiment_id = self.logger.start_experiment(
                 experiment_name=f"TDA Analysis: {'ALL' if RUN_ALL_DATASETS else 'SELECTED'} Datasets",
@@ -593,10 +594,10 @@ class TDAExperimentPipeline:
                 }
             )
 
-            self.logger.info(f"🚀 Starting comprehensive analysis of {len(datasets_to_process)} datasets")
+            self.logger.info(f" Starting comprehensive analysis of {len(datasets_to_process)} datasets")
 
             for i, dataset_name in enumerate(datasets_to_process, 1):
-                self.logger.info(f"📊 [{i}/{len(datasets_to_process)}] Processing dataset: {dataset_name}")
+                self.logger.info(f" [{i}/{len(datasets_to_process)}] Processing dataset: {dataset_name}")
                 self.process_dataset(dataset_name)
 
             # ADDED: Generate comparative analysis
@@ -656,7 +657,7 @@ class TDAExperimentPipeline:
 
     def process_dataset(self, dataset_name: str):
         """Process dataset with automatic subfolder detection"""
-        self.logger.info(f"📁 Analyzing dataset structure: {dataset_name}")
+        self.logger.info(f" Analyzing dataset structure: {dataset_name}")
 
         # Discover dataset structure
         subfolders = self.discover_dataset_structure(dataset_name)
@@ -665,16 +666,16 @@ class TDAExperimentPipeline:
             self.logger.error(f"No images found in dataset: {dataset_name}")
             return
 
-        self.logger.info(f"📊 Dataset structure for {dataset_name}:")
+        self.logger.info(f" Dataset structure for {dataset_name}:")
         for subfolder in subfolders:
             self.logger.info(f"   📂 {subfolder['name']}: {subfolder['image_count']} images")
 
         total_images = sum(sf['image_count'] for sf in subfolders)
-        self.logger.info(f"📈 Total images to process: {total_images}")
+        self.logger.info(f" Total images to process: {total_images}")
 
         # Process each subfolder
         for subfolder in subfolders:
-            self.logger.info(f"🔍 Processing subfolder: {subfolder['name']}")
+            self.logger.info(f" Processing subfolder: {subfolder['name']}")
             self.process_subfolder(subfolder, dataset_name)
 
     def process_subfolder(self, subfolder_info: dict, dataset_name: str):
@@ -689,7 +690,7 @@ class TDAExperimentPipeline:
         for i, image_path in enumerate(selected_images):
             try:
                 image_name = Path(image_path).stem
-                self.logger.info(f"   🖼️  [{i + 1}/{len(selected_images)}] Processing: {image_name}")
+                self.logger.info(f"     [{i + 1}/{len(selected_images)}] Processing: {image_name}")
 
                 # Create unique directory for each image
                 image_output_dir = self.results_dir / "organized_results" / dataset_name / subfolder_name.replace(
@@ -718,14 +719,14 @@ class TDAExperimentPipeline:
                         )
 
             except Exception as e:
-                self.logger.error(f"   ❌ Failed to process {Path(image_path).name}: {e}")
+                self.logger.error(f"    Failed to process {Path(image_path).name}: {e}")
                 continue
 
     def process_single_image_enhanced(self, image: np.ndarray, metadata, output_dir: Path, subfolder_name: str):
         """Process image with baseline → noised → denoised structure"""
 
         image_name = Path(metadata.filename).stem
-        self.logger.info(f"      📊 Processing {image_name}")
+        self.logger.info(f"       Processing {image_name}")
 
         # Create the three main directories
         baseline_dir = output_dir / "baseline"
@@ -736,14 +737,14 @@ class TDAExperimentPipeline:
             dir_path.mkdir(parents=True, exist_ok=True)
 
         # === BASELINE (CLEAN) ===
-        self.logger.info(f"        🧹 Processing baseline (clean) for {image_name}")
+        self.logger.info(f"         Processing baseline (clean) for {image_name}")
         self._process_and_save_to_folder(
             image, f"{image_name}_clean", baseline_dir, subfolder_name, "baseline"
         )
 
         # === NOISED VARIANTS ===
         if RUN_NOISE_EXPERIMENTS:
-            self.logger.info(f"        🔊 Processing noised variants for {image_name}")
+            self.logger.info(f"         Processing noised variants for {image_name}")
 
             # FIXED: Ensure consistent single-channel format for noise generation
             if len(image.shape) == 3:
@@ -789,7 +790,7 @@ class TDAExperimentPipeline:
 
             # === DENOISED VARIANTS ===
             if RUN_DENOISING_EXPERIMENTS:
-                self.logger.info(f"        🧽 Processing denoised variants for {image_name}")
+                self.logger.info(f"         Processing denoised variants for {image_name}")
 
                 for noise_name, noisy_uint8 in noisy_images_store.items():
                     for denoising in DENOISING_METHODS:
@@ -819,20 +820,20 @@ class TDAExperimentPipeline:
     def generate_comparative_analysis(self):
 
 
-        self.logger.info("📈 Generating comprehensive comparative analysis...")
+        self.logger.info(" Generating comprehensive comparative analysis...")
 
         # Analyze noise impact patterns
         if self.three_stage_comparisons:
             df = pd.DataFrame(self.three_stage_comparisons)
 
             # Noise impact analysis
-            self.logger.info("🔊 NOISE IMPACT ANALYSIS:")
+            self.logger.info(" NOISE IMPACT ANALYSIS:")
             noise_impact = df.groupby(['noise_type', 'noise_level'])['noise_impact_total'].agg(['mean', 'std'])
             for (noise_type, level), stats in noise_impact.iterrows():
                 self.logger.info(f"   {noise_type} {level}: {stats['mean']:.1f} ± {stats['std']:.1f} features")
 
             # Denoising effectiveness analysis
-            self.logger.info("🧽 DENOISING EFFECTIVENESS ANALYSIS:")
+            self.logger.info(" DENOISING EFFECTIVENESS ANALYSIS:")
             denoise_effectiveness = df.groupby('denoise_method')['relative_recovery'].agg(['mean', 'std'])
             for method, stats in denoise_effectiveness.iterrows():
                 self.logger.info(f"   {method}: {stats['mean']:.2%} ± {stats['std']:.2%} recovery")
@@ -840,7 +841,7 @@ class TDAExperimentPipeline:
             # Save comparative analysis
             comparison_path = self.results_dir / "three_stage_comparisons.csv"
             df.to_csv(comparison_path, index=False)
-            self.logger.info(f"📊 Three-stage comparisons saved to: {comparison_path}")
+            self.logger.info(f" Three-stage comparisons saved to: {comparison_path}")
 
             # Generate visualization
             self.generate_comparative_visualization(df)
@@ -900,7 +901,7 @@ class TDAExperimentPipeline:
             plt.savefig(viz_path, dpi=300, bbox_inches='tight')
             plt.close()
 
-            self.logger.info(f"📊 Comparative visualization saved to: {viz_path}")
+            self.logger.info(f" Comparative visualization saved to: {viz_path}")
 
         except Exception as e:
             self.logger.error(f"Failed to generate visualization: {e}")
@@ -1046,7 +1047,7 @@ class TDAExperimentPipeline:
         df = pd.DataFrame(self.all_metrics)
         csv_path = self.results_dir / "full_experiment_metrics.csv"
         df.to_csv(csv_path, index=False)
-        self.logger.info(f"📊 Saved comprehensive metrics to: {csv_path}")
+        self.logger.info(f" Saved comprehensive metrics to: {csv_path}")
 
         # ADDED: Create verification report if we have verification results
         if self.verification_results and self.is_synthetic_dataset:
@@ -1060,7 +1061,7 @@ class TDAExperimentPipeline:
 
 
 
-            self.logger.info("🧪 VERIFICATION SUMMARY:")
+            self.logger.info(" VERIFICATION SUMMARY:")
             self.logger.info(f"   Total verified images: {total_verified}")
             self.logger.info(f"   Verification passed: {passed_verified}")
             self.logger.info(f"   Verification failed: {total_verified - passed_verified}")
@@ -1068,9 +1069,9 @@ class TDAExperimentPipeline:
                 self.logger.info(f"   Success rate: {passed_verified / total_verified * 100:.1f}%")
 
         elif not self.is_synthetic_dataset:
-            self.logger.info("ℹ️  Verification skipped for real datasets (no ground truth available)")
+            self.logger.info("ℹ  Verification skipped for real datasets (no ground truth available)")
         # Log summary statistics
-        self.logger.info("📈 EXPERIMENT SUMMARY:")
+        self.logger.info(" EXPERIMENT SUMMARY:")
         self.logger.info(f"   Total images processed: {len(df)}")
         self.logger.info(f"   Average Betti 0: {df['betti_0'].mean():.2f}")
         self.logger.info(f"   Average Betti 1: {df['betti_1'].mean():.2f}")
@@ -1078,7 +1079,7 @@ class TDAExperimentPipeline:
         # ADDED: Noise robustness analysis
         baseline_df = df[df['stage'] == 'baseline']
         if len(baseline_df) > 0:
-            self.logger.info("🔊 NOISE ROBUSTNESS ANALYSIS:")
+            self.logger.info(" NOISE ROBUSTNESS ANALYSIS:")
             self.logger.info(f"   Baseline avg features: {baseline_df['total_features'].mean():.1f}")
 
             noised_df = df[df['variant'].str.contains('gaussian|salt_pepper', na=False)]
@@ -1117,14 +1118,14 @@ class TDAExperimentPipeline:
             self.logger.info(f"  Filtration method effectiveness: {better_method_counts.to_dict()}")
 
 if __name__ == "__main__":
-    print("🚀 TDA Pipeline with Comprehensive Noise Analysis")
-    print(f"📁 Data source: {ONEDRIVE_PATH}")
-    print(f"🎯 Selected datasets: {DATASETS_TO_RUN}")
-    print(f"🔧 Run all datasets: {RUN_ALL_DATASETS}")
-    print(f"🔊 Noise experiments: {RUN_NOISE_EXPERIMENTS}")
-    print(f"🧹 Denoising experiments: {RUN_DENOISING_EXPERIMENTS}")
-    print(f"⚠️  Excluding datasets: {EXCLUDE_DATASETS}")
-    print("✨ ENHANCED: Added comprehensive comparative analysis")
+    print(" TDA Pipeline with Comprehensive Noise Analysis")
+    print(f" Data source: {ONEDRIVE_PATH}")
+    print(f" Selected datasets: {DATASETS_TO_RUN}")
+    print(f" Run all datasets: {RUN_ALL_DATASETS}")
+    print(f" Noise experiments: {RUN_NOISE_EXPERIMENTS}")
+    print(f" Denoising experiments: {RUN_DENOISING_EXPERIMENTS}")
+    print(f"  Excluding datasets: {EXCLUDE_DATASETS}")
+    print(" ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
         results_dir=str(PROJECT_ROOT /"TDA_ResultsEDT29102025V1"),

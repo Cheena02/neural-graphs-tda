@@ -45,23 +45,23 @@ print("=" * 70)
 
 # Check if CSV exists
 if not CSV_FILE.exists():
-    print(f"\n❌ ERROR: CSV file not found!")
+    print(f"\n ERROR: CSV file not found!")
     print(f"   Expected: {CSV_FILE}")
     print(f"\n   Please run main1.py first to generate the data.")
     print(f"   Or update RESULTS_DIR and CSV_FILE paths in this script.")
     sys.exit(1)
 
-print(f"\n✅ Found CSV: {CSV_FILE}")
+print(f"\n Found CSV: {CSV_FILE}")
 
 # Create output directory
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-print(f"✅ Output directory: {OUTPUT_DIR}")
+print(f" Output directory: {OUTPUT_DIR}")
 
 # ============================================================================
 # LOAD DATA
 # ============================================================================
 
-print("\n📊 Loading data...")
+print("\n Loading data...")
 df = pd.read_csv(CSV_FILE)
 print(f"   Loaded {len(df)} rows")
 print(f"   Columns: {', '.join(df.columns[:5])}...")
@@ -107,7 +107,7 @@ gaussian_unweighted = weighted_df[weighted_df['noise_type'] == 'gaussian']['unwe
 saltpepper_unweighted = weighted_df[weighted_df['noise_type'] == 'salt_pepper']['unweighted_impact'].values[0]
 unweighted_ratio = saltpepper_unweighted / gaussian_unweighted
 
-print(f"\n📈 RESULTS:")
+print(f"\n RESULTS:")
 print(f"   Unweighted ratio (feature count): {unweighted_ratio:.2f}×")
 print(f"   Weighted ratio (Wasserstein):     {weighted_ratio:.2f}×")
 print(f"   Difference: {abs(weighted_ratio - unweighted_ratio):.2f}×")
@@ -151,7 +151,7 @@ plt.suptitle('Weighted vs Unweighted Topological Impact (5% Noise)',
 plt.tight_layout()
 output_file = OUTPUT_DIR / 'weighted_vs_unweighted_comparison.png'
 plt.savefig(output_file, dpi=300, bbox_inches='tight')
-print(f"\n✅ Saved: {output_file}")
+print(f"\n Saved: {output_file}")
 plt.close()
 
 # ============================================================================
@@ -207,7 +207,7 @@ plt.suptitle('Wasserstein Distance Heatmaps: Noise Impact on Topology',
 plt.tight_layout()
 output_file = OUTPUT_DIR / 'wasserstein_heatmaps_by_noise.png'
 plt.savefig(output_file, dpi=300, bbox_inches='tight')
-print(f"✅ Saved: {output_file}")
+print(f" Saved: {output_file}")
 plt.close()
 
 # Heatmap 2: Recovery effectiveness (Clean→Denoised Wasserstein)
@@ -256,7 +256,7 @@ plt.suptitle('Denoising Recovery Effectiveness (Wasserstein Distance from Clean)
 plt.tight_layout()
 output_file = OUTPUT_DIR / 'wasserstein_recovery_heatmaps.png'
 plt.savefig(output_file, dpi=300, bbox_inches='tight')
-print(f"✅ Saved: {output_file}")
+print(f" Saved: {output_file}")
 plt.close()
 
 # ============================================================================
@@ -309,7 +309,7 @@ for metric_col, metric_name in metrics:
 ratio_df = pd.DataFrame(ratio_summary)
 output_file = OUTPUT_DIR / 'comprehensive_ratio_summary.csv'
 ratio_df.to_csv(output_file, index=False)
-print(f"✅ Saved: {output_file}")
+print(f" Saved: {output_file}")
 
 # Pretty print
 print("\n" + "=" * 70)
@@ -321,13 +321,13 @@ print("=" * 70)
 # Save weighted persistence results
 output_file = OUTPUT_DIR / 'weighted_persistence_analysis.csv'
 weighted_df.to_csv(output_file, index=False)
-print(f"\n✅ Saved: {output_file}")
+print(f"\n Saved: {output_file}")
 
 # ============================================================================
 # SUMMARY
 # ============================================================================
 print("\n" + "=" * 70)
-print("✅ ALL VISUALIZATIONS GENERATED!")
+print(" ALL VISUALIZATIONS GENERATED!")
 print("=" * 70)
 print(f"\nOutput directory: {OUTPUT_DIR}")
 print("\nGenerated files:")
@@ -337,7 +337,7 @@ print("  3. wasserstein_recovery_heatmaps.png")
 print("  4. comprehensive_ratio_summary.csv")
 print("  5. weighted_persistence_analysis.csv")
 print("\n" + "=" * 70)
-print(f"📊 THE ONE TRUE RATIO: {weighted_ratio:.1f}×")
+print(f" THE ONE TRUE RATIO: {weighted_ratio:.1f}×")
 print("   (Salt-pepper causes {:.1f}× more disruption than Gaussian)".format(weighted_ratio))
 print("=" * 70)
 
