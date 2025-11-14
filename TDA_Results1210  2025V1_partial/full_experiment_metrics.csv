@@ -1,0 +1,2 @@
+image_name,subfolder,stage,variant,threshold,superlevel,confidence,total_features,betti_0,betti_1,min_persistence,timestamp
+synthetic_annulus_clean,test,baseline,baseline,0.0,True,0.9,2,1,1,0.02,2025-11-13T23:11:29.584354

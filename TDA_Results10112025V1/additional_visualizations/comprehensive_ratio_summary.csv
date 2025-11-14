@@ -1,0 +1,7 @@
+Metric,Gaussian (5%),Salt-Pepper (5%),Ratio (SP/G)
+Feature Count (Total),"5,643.2","-1,490.2",-0.26×
+Wasserstein H₀,"7,690.4",34.4,0.00×
+Wasserstein H₁,"11,115.7","9,625.6",0.87×
+Wasserstein Combined,"18,806.1","9,660.0",0.51×
+Betti β₀ Change,"3,308.8",-14.5,-0.00×
+Betti β₁ Change,"2,334.3","-1,475.7",-0.63×

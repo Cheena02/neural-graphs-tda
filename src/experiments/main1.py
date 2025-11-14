@@ -42,7 +42,7 @@ License: Academic Use Only
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import time
+from datetime import datetime, timezone, timedelta
 import sys
 import os
 import glob
@@ -61,6 +61,7 @@ from src.tda.cubical import cubical_diagrams
 from src.noise.generation import NoiseGenerator
 from src.noise.mitigation import DenoisingStrategies
 from src.visualization.plotter import TDAVisualizer
+from src.analysis.step_by_step_visualizer import StepByStepVisualizer
 from src.utils.logger import TDALogger, log_method_call
 from src.tda.adaptive_parameters import AdaptiveParameterSelector
 from src.tda.thresholds import auto_min_persistence
@@ -73,12 +74,12 @@ from src.tda.edt import edt_diagrams, compare_filtrations
 
 ONEDRIVE_PATH = r"C:\Users\61431\OneDrive - The University Of Newcastle\Deriving and Analysing Graphs from Neural Activity\Dataset Analysis\data\raw_data"
 DATASETS_TO_RUN = [
-    # "MOUSEBIRN",        # 8 images - good for testing
-    # "synthetic_data",   # 18 images
+     # "MOUSEBIRN",        # 8 images - good for testing
+     # "synthetic_data",   # 18 images
     # "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     # "nucmm",            # Will process Mouse, Zebrafish subfolders
-    # "ReportImages",
-    "test",
+     "ReportImages",
+     "test",
 ]
 
 # CONFIGURATION
@@ -86,8 +87,8 @@ RUN_ALL_DATASETS = False# Set to True to process everything
 EXCLUDE_DATASETS = [" "]
 
 # NOISE EXPERIMENT CONFIGURATION
-RUN_NOISE_EXPERIMENTS = True
-RUN_DENOISING_EXPERIMENTS = True
+RUN_NOISE_EXPERIMENTS = False
+RUN_DENOISING_EXPERIMENTS = False
 
 # Noise experiments - using your exact structure
 NOISE_EXPERIMENTS = [
@@ -129,7 +130,7 @@ EXPECTED_BETTI = {
 }
 # FILTRATION CONFIGURATION
 USE_EDT_FILTRATION = True# Set to True to use EDT instead of intensity
-COMPARE_FILTRATIONS = False
+COMPARE_FILTRATIONS = True
 COMPUTE_DISTANCES = True # Set to False to skip slow distance calculations
 
 # REPRODUCIBILITY CONFIGURATION
@@ -384,6 +385,9 @@ class TDAExperimentPipeline:
         betti_0 = len(persistence_dict.get("H0", []))
         betti_1 = len(persistence_dict.get("H1", []))
 
+        raw_data_dir = self.results_dir / 'raw_persistence'
+        self.save_raw_persistence_data(persistence_dict, variant_name, stage, raw_data_dir)
+
         return {
             'variant_name': variant_name,
             'stage': stage,
@@ -410,34 +414,37 @@ class TDAExperimentPipeline:
         params = self.param_selector.select_optimal_parameters(image)
         self.last_params = params  # Store for step-by-step visualization
 
-        self.logger.info(f"         Parameters selected:")
-        self.logger.info(f"         Threshold: {params['threshold']:.6f}")
-        self.logger.info(f"         Superlevel: {params['superlevel']}")
-        self.logger.info(f"         Confidence: {params.get('confidence', 0.0):.3f}")
+        self.logger.info(f"  Parameters selected:")
+        self.logger.info(f" Threshold: {params['threshold']:.6f}")
+        self.logger.info(f" Superlevel: {params['superlevel']}")
+        self.logger.info(f"Confidence: {params.get('confidence', 0.0):.3f}")
 
 
         # COMPUTE PERSISTENCE DIAGRAMS - FIXED to use EDT configuration
-        self.logger.info(f"         Using EDT filtration: {USE_EDT_FILTRATION}")
+        self.logger.info(f" Using EDT filtration: {USE_EDT_FILTRATION}")
         if USE_EDT_FILTRATION:
             persistence_dict = edt_diagrams(img_float, bin_thresh=params['threshold'])
             filtration_type = "edt"
-            self.logger.info(f"         Applied EDT filtration with threshold: {params['threshold']}")
+            self.logger.info(f"  Applied EDT filtration with threshold: {params['threshold']}")
         else:
             # FIXED: DO NOT pre-threshold for intensity filtration
             # Let cubical complex analyze the full intensity landscape
             persistence_dict = cubical_diagrams(img_float, superlevel=params['superlevel'])
             filtration_type = "intensity_raw"
-            self.logger.info(f"         Applied intensity filtration (superlevel={params['superlevel']})")
+            self.logger.info(f"  Applied intensity filtration (superlevel={params['superlevel']})")
 
         # CALCULATE BETTI NUMBERS
         betti_0 = len(persistence_dict.get("H0", []))
         betti_1 = len(persistence_dict.get("H1", []))
         total_features = betti_0 + betti_1
 
-        self.logger.info(f"         TDA Results:")
-        self.logger.info(f"         Total features: {total_features}")
-        self.logger.info(f"         Betti 0 (components): {betti_0}")
-        self.logger.info(f"         Betti 1 (holes): {betti_1}")
+        raw_data_dir = self.results_dir / 'raw_persistence'
+        self.save_raw_persistence_data(persistence_dict, variant, stage, raw_data_dir)
+
+        self.logger.info(f" TDA Results:")
+        self.logger.info(f" Total features: {total_features}")
+        self.logger.info(f"  Betti 0 (components): {betti_0}")
+        self.logger.info(f" Betti 1 (holes): {betti_1}")
 
         # ADDED: Verification for synthetic images
         computed_betti = {'betti_0': betti_0, 'betti_1': betti_1}
@@ -484,8 +491,7 @@ class TDAExperimentPipeline:
             edt_dir.mkdir(parents=True, exist_ok=True)
             
             # Create visualizers for each filtration method
-            from src.visualization.plotter import TDAVisualizer
-            from src.analysis.step_by_step_visualizer import StepByStepVisualizer
+
             
             intensity_viz = TDAVisualizer(intensity_dir, color_scheme="professional", logger=self.logger)
             edt_viz = TDAVisualizer(edt_dir, color_scheme="professional", logger=self.logger)
@@ -711,12 +717,13 @@ class TDAExperimentPipeline:
                 # Process with your desired structure
                 self.process_single_image_enhanced(image, metadata, image_output_dir, subfolder_name)
 
-
-                for noise_config in NOISE_EXPERIMENTS:
-                    for denoise_config in DENOISING_METHODS:
-                        self.perform_three_stage_comparison(
+                if RUN_NOISE_EXPERIMENTS:
+                    for noise_config in NOISE_EXPERIMENTS:
+                        if RUN_DENOISING_EXPERIMENTS:
+                            for denoise_config in DENOISING_METHODS:
+                                self.perform_three_stage_comparison(
                             image, image_name, noise_config, denoise_config
-                        )
+                            )
 
             except Exception as e:
                 self.logger.error(f"    Failed to process {Path(image_path).name}: {e}")
@@ -1037,6 +1044,33 @@ class TDAExperimentPipeline:
         # For now, skip visualization here - it will be handled by the calling function
         return comparison_results
 
+    def save_raw_persistence_data(self, persistence_dict, image_name, stage, output_dir):
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+
+        if len(persistence_dict.get('H0', [])) > 0:
+            h0_array = persistence_dict['H0']
+            h0_df = pd.DataFrame(h0_array, columns=['birth', 'death'])
+            h0_df['persistence'] = h0_df['death'] - h0_df['birth']
+            h0_df['dimension'] = 0
+            h0_path = output_dir / f'{image_name}_{stage}_H0.csv'
+            h0_df.to_csv(h0_path, index=False)
+            if self.logger:
+                self.logger.info(f" Saved {len(h0_df)} H0 features to {h0_path.name}")
+
+
+        if len(persistence_dict.get('H1', [])) > 0:
+            h1_array = persistence_dict['H1']
+            h1_df = pd.DataFrame(h1_array, columns=['birth', 'death'])
+            h1_df['persistence'] = h1_df['death'] - h1_df['birth']
+            h1_df['dimension'] = 1
+            h1_path = output_dir / f'{image_name}_{stage}_H1.csv'
+            h1_df.to_csv(h1_path, index=False)
+            if self.logger:
+                self.logger.info(f" Saved {len(h1_df)} H1 features to {h1_path.name}")
+
     def finalize_results(self):
         """Generate comprehensive final reports with verification results"""
         if not self.all_metrics:
@@ -1128,7 +1162,7 @@ if __name__ == "__main__":
     print(" ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
-        results_dir=str(PROJECT_ROOT /"TDA_ResultsEDT29102025V1"),
+        results_dir=str(PROJECT_ROOT /"TDA_Results12102025V1"),
         onedrive_path=ONEDRIVE_PATH,
         datasets_to_run=DATASETS_TO_RUN
     )

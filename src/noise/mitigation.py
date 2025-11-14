@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Comprehensive noise mitigation strategies for TDA pipeline.
 

@@ -14,7 +14,7 @@ Engineering Features:
 - Consistent styling for professional reports.
 """
 
-# !/usr/bin/env python3
+
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path

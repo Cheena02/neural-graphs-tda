@@ -79,9 +79,9 @@ class TDAVisualizer:
             1: "#4682B4",  # Steel Blue for H1
             2: "#32CD32",  # Lime Green for H2 (future-proof)
         }
-        # --- END OF THE DEFINITIVE FIX ---
 
-        # Filtering logic to prevent a solid black plot (this part is working correctly)
+
+
         max_intervals = 250
         if len(persistence) > max_intervals:
             if self.logger:
@@ -355,15 +355,7 @@ class TDAVisualizer:
     
     def plot_persistence_barcode_publication(self, persistence_dict, title, output_filename,
                                             max_features=200):
-        """
-        Publication-quality barcode plot showing BOTH H0 and H1.
-        
-        Args:
-            persistence_dict: Dict with 'H0' and 'H1' keys
-            title: Clean title
-            output_filename: Output path
-            max_features: Maximum features to display per dimension (default: 200)
-        """
+
         plt.style.use('default')
         fig, ax = plt.subplots(figsize=(12, 8), facecolor='white')
         
@@ -375,24 +367,26 @@ class TDAVisualizer:
         def filter_and_sort(data, max_count):
             if len(data) == 0:
                 return np.array([])
-            
-            # Remove infinite deaths
-            finite_data = data[np.isfinite(data[:, 1])]
-            
+
+            # Replace infinite deaths with max finite value + 0.1
+            data_copy = data.copy()
+            finite_deaths = data_copy[np.isfinite(data_copy[:, 1]), 1]
+            max_death = np.max(finite_deaths) if len(finite_deaths) > 0 else 1.0
+
+            infinite_mask = ~np.isfinite(data_copy[:, 1])
+            data_copy[infinite_mask, 1] = max_death + 0.1
+
             # Calculate persistence
-            if len(finite_data) == 0:
-                return np.array([])
-            
-            pers = finite_data[:, 1] - finite_data[:, 0]
-            
+            pers = data_copy[:, 1] - data_copy[:, 0]
+
             # Sort by persistence (descending)
             sorted_indices = np.argsort(pers)[::-1]
-            filtered = finite_data[sorted_indices]
-            
+            filtered = data_copy[sorted_indices]
+
             # Limit to max_count
             if len(filtered) > max_count:
                 filtered = filtered[:max_count]
-            
+
             return filtered
         
         h0_filtered = filter_and_sort(h0, max_features)
@@ -556,4 +550,6 @@ class TDAVisualizer:
             self.logger.info(f"Saved Betti evolution plot to: {output_path}")
         
         return str(output_path)
+
+
 

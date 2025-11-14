@@ -7,8 +7,6 @@ Those are generated separately by plotter.py.
 Focus: Visual clarity of how the cubical complex builds up step-by-step.
 
 Author: Cheena Yadav
-Date: October 2025
-Version: 3.0.0 (FINAL)
 """
 
 import numpy as np

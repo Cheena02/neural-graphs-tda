@@ -1,0 +1,2 @@
+image_name,intensity_betti_0,intensity_betti_1,edt_betti_0,edt_betti_1,method_difference_total,better_method,threshold,superlevel
+synthetic_annulus_clean,1,1,1,1,0,unknown,0.0,True

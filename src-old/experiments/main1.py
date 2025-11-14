@@ -41,11 +41,13 @@ DATASETS_TO_RUN = [
     # "synthetic_data",  # 18 images
     #  "defungi",          # Will process H1, H2, H3, H5, H6 automatically
     #  "nucmm",            Will process Mouse, Zebrafish subfolders
-     'ReportImages'
+    'ReportImages',
+    'test'
+
 ]
 
 # CONFIGURATION
-RUN_ALL_DATASETS = True  # Set to True to process everything
+RUN_ALL_DATASETS = False  # Set to True to process everything
 EXCLUDE_DATASETS = [" "]
 
 # NOISE EXPERIMENT CONFIGURATION
@@ -54,16 +56,28 @@ RUN_DENOISING_EXPERIMENTS = True
 
 # Noise experiments - using your exact structure
 NOISE_EXPERIMENTS = [
-    {"type": "gaussian", "param": 0.05, "name": "gaussian_0.05"},
-    {"type": "gaussian", "param": 0.1, "name": "gaussian_0.1"},
+    # Gaussian noise - wider range for stability curve
+    {"type": "gaussian", "param": 0.01, "name": "gaussian_0.01"},  # Very mild
+    {"type": "gaussian", "param": 0.03, "name": "gaussian_0.03"},  # Mild
+    {"type": "gaussian", "param": 0.05, "name": "gaussian_0.05"},  # Moderate
+    {"type": "gaussian", "param": 0.08, "name": "gaussian_0.08"},  # Strong
+    {"type": "gaussian", "param": 0.10, "name": "gaussian_0.10"},  # Very strong
+
+    # Salt-and-pepper noise
+    {"type": "salt_pepper", "param": 0.01, "name": "salt_pepper_0.01"},
+    {"type": "salt_pepper", "param": 0.03, "name": "salt_pepper_0.03"},
     {"type": "salt_pepper", "param": 0.05, "name": "salt_pepper_0.05"},
-    {"type": "salt_pepper", "param": 0.1, "name": "salt_pepper_0.1"},
+    {"type": "salt_pepper", "param": 0.08, "name": "salt_pepper_0.08"},
+    {"type": "salt_pepper", "param": 0.10, "name": "salt_pepper_0.10"},
 ]
 
 DENOISING_METHODS = [
     {"method": "median_filter", "name": "median_filter", "window_size": 5},
     {"method": "bilateral_filter", "name": "bilateral_filter", "sigma_color": 75, "sigma_spatial": 75},
     {"method": "non_local_means", "name": "non_local_means", "h": 10},
+    # {"method": "topological_denoising", "name": "topological", "persistence_threshold": 10.0},
+    # {"method": "morphological_denoising", "name": "morphological", "kernel_size": 5, "operation": "opening"},
+
 ]
 
 # ADDED: Expected Betti numbers for verification (synthetic images)
@@ -994,14 +1008,14 @@ class TDAExperimentPipeline:
             self.logger.info(f"  Filtration method effectiveness: {better_method_counts.to_dict()}")
 
 if __name__ == "__main__":
-    print("🚀 TDA Pipeline with Comprehensive Noise Analysis")
-    print(f"📁 Data source: {ONEDRIVE_PATH}")
-    print(f"🎯 Selected datasets: {DATASETS_TO_RUN}")
-    print(f"🔧 Run all datasets: {RUN_ALL_DATASETS}")
-    print(f"🔊 Noise experiments: {RUN_NOISE_EXPERIMENTS}")
-    print(f"🧹 Denoising experiments: {RUN_DENOISING_EXPERIMENTS}")
-    print(f"⚠️  Excluding datasets: {EXCLUDE_DATASETS}")
-    print("✨ ENHANCED: Added comprehensive comparative analysis")
+    print(" TDA Pipeline with Comprehensive Noise Analysis")
+    print(f" Data source: {ONEDRIVE_PATH}")
+    print(f" Selected datasets: {DATASETS_TO_RUN}")
+    print(f" Run all datasets: {RUN_ALL_DATASETS}")
+    print(f" Noise experiments: {RUN_NOISE_EXPERIMENTS}")
+    print(f" Denoising experiments: {RUN_DENOISING_EXPERIMENTS}")
+    print(f" Excluding datasets: {EXCLUDE_DATASETS}")
+    print(" ENHANCED: Added comprehensive comparative analysis")
 
     pipeline = TDAExperimentPipeline(
         results_dir="TDA_Analysis_Results",

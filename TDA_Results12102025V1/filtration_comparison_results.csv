@@ -1,0 +1,9 @@
+image_name,intensity_betti_0,intensity_betti_1,edt_betti_0,edt_betti_1,method_difference_total,better_method,threshold,superlevel
+Fluoroscent_Red_313_clean,19893,935,8,9449,0,unknown,0.09803921568627451,True
+FLuroscent_Green61_clean,9396,2577,1,3106,0,unknown,0.09019607843137255,True
+Fluroscent_Yellow_clean,9367,4,1,878,0,unknown,0.2235294117647059,True
+MouseSlice_clean,188,178,3,5,0,unknown,0.4666666666666667,False
+Zebrafish_clean,75,65,9,31,0,unknown,0.5764705882352941,False
+Defungi_H2_1a_6_clean,79,68,10,22,0,unknown,0.4745098039215686,False
+Mouserbirn_neuronal_clean,2808,4542,88,308,0,unknown,0.20784313725490197,True
+synthetic_annulus_clean,1,1,1,1,0,unknown,0.0,True

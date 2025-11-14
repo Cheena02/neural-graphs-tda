@@ -12,8 +12,6 @@ Features:
 - Error handling and validation
 
 Author: Cheena Yadav
-Date: October 2025
-Version: 1.0.0
 """
 
 import os
